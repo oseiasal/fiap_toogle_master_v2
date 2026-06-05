@@ -15,6 +15,10 @@ Como este repositório utiliza submódulos externos, as customizações necessá
 Para aplicá-las (garantindo compatibilidade de encoding e quebras de linha), execute:
 
 ```bash
+git submodule update --init --recursive
+```
+
+```bash
 # Aplicar todos os patches ignorando espaços em branco (evita erros Windows/Linux)
 git submodule foreach 'git apply --ignore-whitespace ../../patches/$name.patch || echo "Patch já aplicado ou inexistente para $name"'
 ```
@@ -24,3 +28,8 @@ git submodule foreach 'git apply --ignore-whitespace ../../patches/$name.patch |
 Comandos para build `docker build -t analytics -f docker/Dockerfile.analytics .`
 
 Para injetar a `.env` `docker run --env-file .env.prod analytics`
+
+
+Para gerar patch: 
+
+git submodule foreach 'git diff HEAD > ../../patches/$name.patch'   

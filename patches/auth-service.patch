@@ -1,4 +1,4 @@
-﻿diff --git a/go.mod b/go.mod
+diff --git a/go.mod b/go.mod
 index bce09f4..aecccba 100644
 --- a/go.mod
 +++ b/go.mod
@@ -226,7 +226,7 @@ index 08e1b17..9f2fb9d 100644
 -	"fmt"
  )
  
- // generateAPIKey cria uma string aleat├│ria segura de 32 bytes
+ // generateAPIKey cria uma string aleatória segura de 32 bytes
 diff --git a/main.go b/main.go
 index d72dc30..783a79c 100644
 --- a/main.go

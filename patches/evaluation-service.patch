@@ -1,4 +1,4 @@
-﻿diff --git a/evaluator.go b/evaluator.go
+diff --git a/evaluator.go b/evaluator.go
 index fcdc243..578b752 100644
 --- a/evaluator.go
 +++ b/evaluator.go
