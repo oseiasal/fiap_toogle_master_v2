@@ -82,7 +82,7 @@ services:
       - AWS_SQS_URL=https://sqs.us-east-1.amazonaws.com/123456789012/my-queue
       - AWS_ACCESS_KEY_ID=local
       - AWS_SECRET_ACCESS_KEY=local
-      - SERVICE_API_KEY=sua_chave_de_servico_aqui
+      - SERVICE_API_KEY=tm_key_f54b81bc161a5b84c277ed954384ae950c87adb8c795892db4abfaef75aaacab
     depends_on:
       - redis
       - flag-service
