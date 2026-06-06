@@ -13,7 +13,6 @@ aws rds create-db-instance \
     --master-user-password "change-me-securely" \
     --backup-retention-period 7 \
     --publicly-accessible \
-    # --no-publicly-accessible \
     --tags Key=Project,Value=ToogleMaster Key=Service,Value=Auth > outputs/rds-auth.json
 
 echo "Creating RDS Postgres Instance: main-db..."
@@ -26,5 +25,4 @@ aws rds create-db-instance \
     --master-user-password "change-me-securely" \
     --backup-retention-period 7 \
     --publicly-accessible \
-    # --no-publicly-accessible \
     --tags Key=Project,Value=ToogleMaster Key=Service,Value=Core > outputs/rds-main.json

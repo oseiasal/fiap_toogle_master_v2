@@ -45,6 +45,17 @@ Or run individual scripts:
 ./redis.sh
 ```
 
+## Cleanup (Delete All)
+
+To delete all provisioned resources and clean up the `outputs` directory:
+
+```bash
+chmod +x delete-all.sh
+./delete-all.sh
+```
+
+**WARNING:** This action is irreversible and will delete all data in RDS and DynamoDB.
+
 ## Security Note
 
 The RDS scripts use a placeholder password `change-me-securely`. **Change this password** before running the scripts or use AWS Secrets Manager to handle credentials.
