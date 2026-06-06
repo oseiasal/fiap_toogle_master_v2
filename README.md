@@ -44,10 +44,23 @@ Os manifestos para implantação no Kubernetes estão na pasta `/k8s`. Eles incl
 - **Ingress:** Nginx Ingress para roteamento externo.
 - **HPA:** Escalabilidade automática para `evaluation-service` e `analytics-service`.
 
-### Como Aplicar:
+### Como Aplicar (Kubernetes Estático):
 ```bash
 kubectl apply -f k8s/namespace.yaml
 kubectl apply -f k8s/
+```
+
+### Como Aplicar (Helm):
+O projeto agora inclui um **Helm Chart** em `k8s/charts/toogle-master` para facilitar o deploy e a configuração.
+
+1. Instale o chart:
+```bash
+helm install toogle-master ./k8s/charts/toogle-master -n toogle-master --create-namespace
+```
+
+2. Atualize configurações (como AccountID da AWS) via `values.yaml`:
+```bash
+helm upgrade toogle-master ./k8s/charts/toogle-master -n toogle-master --set accountID="SEU_ID_AWS"
 ```
 
 ## 🛠️ Detalhes de Implementação

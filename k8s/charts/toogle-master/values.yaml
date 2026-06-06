@@ -1,0 +1,99 @@
+# Global settings
+accountID: "123456789012"
+region: "us-east-1"
+
+# Common labels
+labels:
+  project: fiap-toogle
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  host: toogle.example.com
+
+# Services configuration
+services:
+  auth:
+    replicaCount: 1
+    image: auth-service
+    tag: latest
+    port: 8001
+    dbUrl: "cG9zdGdyZXM6Ly91c2VyOnBhc3N3b3JkQHJkcy1lbmRwb2ludDo1NDMyL2F1dGhfZGI="
+    masterKey: "c3VhX2NoYXZlX21lc3RyYV9hcXVp"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+  flag:
+    replicaCount: 1
+    image: flag-service
+    tag: latest
+    port: 8002
+    dbUrl: "cG9zdGdyZXM6Ly91c2VyOnBhc3N3b3JkQHJkcy1lbmRwb2ludDo1NDMyL2ZsYWdfZGI="
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+  targeting:
+    replicaCount: 1
+    image: targeting-service
+    tag: latest
+    port: 8003
+    dbUrl: "cG9zdGdyZXM6Ly91c2VyOnBhc3N3b3JkQHJkcy1lbmRwb2ludDo1NDMyL3RhcmdldGluZ19kYg=="
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+  evaluation:
+    replicaCount: 2
+    image: evaluation-service
+    tag: latest
+    port: 8004
+    redisUrl: "cmVkaXM6Ly9yZWRpcy1lbmRwb2ludDo2Mzc5"
+    sqsUrl: "aHR0cHM6Ly9zcXMudXMtZWFzdC0xLmFtYXpvbmF3cy5jb20vMTIzNDU2Nzg5MDEyL3Rvb2dsZS1ldmVudHM="
+    apiKey: "dG1fa2V5X2Y1NGI4MWJjMTYxYTViODRjMjc3ZWQ5NTQzODRhZTk1MGM4N2FkYjhjNzk1ODkyZGI0YWJmYWVmNzVhYWFjYWI="
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 10
+      targetCPU: 70
+
+  analytics:
+    replicaCount: 1
+    image: analytics-service
+    tag: latest
+    port: 8005
+    sqsUrl: "aHR0cHM6Ly9zcXMudXMtZWFzdC0xLmFtYXpvbmF3cy5jb20vMTIzNDU2Nzg5MDEyL3Rvb2dsZS1ldmVudHM="
+    dbTable: "analytics_events"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+    hpa:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 5
+      targetCPU: 70

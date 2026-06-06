@@ -1,0 +1,135 @@
+{{- range $name, $service := .Values.services }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}-service
+  labels:
+    app: {{ $name }}-service
+    {{- toYaml $.Values.labels | nindent 4 }}
+spec:
+  replicas: {{ $service.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ $name }}-service
+  template:
+    metadata:
+      labels:
+        app: {{ $name }}-service
+    spec:
+      containers:
+      - name: {{ $name }}-service
+        image: "{{ $.Values.accountID }}.dkr.ecr.{{ $.Values.region }}.amazonaws.com/{{ $service.image }}:{{ $service.tag }}"
+        ports:
+        - containerPort: {{ $service.port }}
+        env:
+        - name: PORT
+          value: "{{ $service.port }}"
+        {{- if eq $name "auth" }}
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: auth-service-secret
+              key: DATABASE_URL
+        - name: MASTER_KEY
+          valueFrom:
+            secretKeyRef:
+              name: auth-service-secret
+              key: MASTER_KEY
+        {{- end }}
+        {{- if or (eq $name "flag") (eq $name "targeting") }}
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ $name }}-service-secret
+              key: DATABASE_URL
+        - name: AUTH_SERVICE_URL
+          value: "http://auth-service.{{ $.Release.Namespace }}.svc.cluster.local:8001"
+        {{- end }}
+        {{- if eq $name "evaluation" }}
+        - name: FLAG_SERVICE_URL
+          value: "http://flag-service.{{ $.Release.Namespace }}.svc.cluster.local:8002"
+        - name: TARGETING_SERVICE_URL
+          value: "http://targeting-service.{{ $.Release.Namespace }}.svc.cluster.local:8003"
+        - name: AWS_REGION
+          value: "{{ $.Values.region }}"
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: evaluation-service-secret
+              key: REDIS_URL
+        - name: AWS_SQS_URL
+          valueFrom:
+            secretKeyRef:
+              name: evaluation-service-secret
+              key: AWS_SQS_URL
+        - name: SERVICE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: evaluation-service-secret
+              key: SERVICE_API_KEY
+        {{- end }}
+        {{- if eq $name "analytics" }}
+        - name: AWS_REGION
+          value: "{{ $.Values.region }}"
+        - name: AWS_DYNAMODB_TABLE
+          value: "{{ $service.dbTable }}"
+        - name: AWS_SQS_URL
+          valueFrom:
+            secretKeyRef:
+              name: analytics-service-secret
+              key: AWS_SQS_URL
+        {{- end }}
+        resources:
+          {{- toYaml $service.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: {{ $service.port }}
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: {{ $service.port }}
+          initialDelaySeconds: 10
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-service
+  labels:
+    app: {{ $name }}-service
+spec:
+  selector:
+    app: {{ $name }}-service
+  ports:
+    - protocol: TCP
+      port: {{ $service.port }}
+      targetPort: {{ $service.port }}
+  type: ClusterIP
+---
+{{- if $service.hpa }}
+{{- if $service.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $name }}-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $name }}-service
+  minReplicas: {{ $service.hpa.minReplicas }}
+  maxReplicas: {{ $service.hpa.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ $service.hpa.targetCPU }}
+---
+{{- end }}
+{{- end }}
+{{- end }}
