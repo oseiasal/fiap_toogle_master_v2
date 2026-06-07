@@ -51,6 +51,7 @@ SUBNET_B_ID=$(aws ec2 create-subnet \
     --output text)
 
 echo "Secondary Subnet Created (for RDS/Redis): $SUBNET_B_ID"
+aws ec2 modify-subnet-attribute --subnet-id "$SUBNET_B_ID" --map-public-ip-on-launch
 
 # 5. Create Route Table and add route to Internet
 RT_ID=$(aws ec2 create-route-table \
@@ -94,3 +95,6 @@ echo "Networking setup complete."
 echo "VPC: $VPC_ID"
 echo "Security Group: $SG_ID"
 echo "Subnets: $SUBNET_ID, $SUBNET_B_ID"
+
+echo "Waiting 30 seconds for networking resources to propagate..."
+sleep 30

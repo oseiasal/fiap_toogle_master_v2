@@ -21,18 +21,28 @@ fi
 
 echo "Using Security Group: $SG_ID"
 echo "Creating RDS Postgres Instance: auth-db..."
-aws rds create-db-instance \
-    --db-instance-identifier auth-db \
-    --db-instance-class db.t3.medium \
-    --engine postgres \
-    --allocated-storage 20 \
-    --master-username "dbuser" \
-    --master-user-password "$PASSWORD" \
-    --backup-retention-period 7 \
-    --publicly-accessible \
-    --vpc-security-group-ids "$SG_ID" \
-    --db-subnet-group-name "toogle-db-subnet-group" \
-    --tags Key=Project,Value=ToogleMaster Key=Service,Value=Auth
+
+# Retry loop for RDS creation to handle subnet propagation delays
+MAX_RETRIES=5
+COUNT=0
+while [ $COUNT -lt $MAX_RETRIES ]; do
+    aws rds create-db-instance \
+        --db-instance-identifier auth-db \
+        --db-instance-class db.t3.medium \
+        --engine postgres \
+        --allocated-storage 20 \
+        --master-username "dbuser" \
+        --master-user-password "$PASSWORD" \
+        --backup-retention-period 7 \
+        --publicly-accessible \
+        --vpc-security-group-ids "$SG_ID" \
+        --db-subnet-group-name "toogle-db-subnet-group" \
+        --tags Key=Project,Value=ToogleMaster Key=Service,Value=Auth && break
+    
+    echo "RDS creation failed, retrying in 20s (Attempt $((COUNT+1))/$MAX_RETRIES)..."
+    sleep 20
+    COUNT=$((COUNT+1))
+done
 
 echo "Creating RDS Postgres Instance: main-db..."
 aws rds create-db-instance \

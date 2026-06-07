@@ -18,11 +18,20 @@ fi
 
 echo "Using Security Group: $SG_ID"
 echo "Creating ElastiCache Redis Cluster: toogle-redis..."
-aws elasticache create-cache-cluster \
-    --cache-cluster-id toogle-redis \
-    --engine redis \
-    --cache-node-type cache.t3.medium \
-    --num-cache-nodes 1 \
-    --security-group-ids "$SG_ID" \
-    --cache-subnet-group-name "toogle-cache-subnet-group" \
-    --tags Key=Project,Value=ToogleMaster
+
+MAX_RETRIES=5
+COUNT=0
+while [ $COUNT -lt $MAX_RETRIES ]; do
+    aws elasticache create-cache-cluster \
+        --cache-cluster-id toogle-redis \
+        --engine redis \
+        --cache-node-type cache.t3.medium \
+        --num-cache-nodes 1 \
+        --security-group-ids "$SG_ID" \
+        --cache-subnet-group-name "toogle-cache-subnet-group" \
+        --tags Key=Project,Value=ToogleMaster && break
+    
+    echo "Redis creation failed, retrying in 20s (Attempt $((COUNT+1))/$MAX_RETRIES)..."
+    sleep 20
+    COUNT=$((COUNT+1))
+done

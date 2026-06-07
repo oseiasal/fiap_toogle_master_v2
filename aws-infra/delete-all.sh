@@ -3,6 +3,8 @@
 # Master script to delete all provisioned AWS resources for ToogleMaster
 # WARNING: This will permanently delete your data and infrastructure.
 
+export AWS_PAGER=""
+
 echo "!!! WARNING: Starting AWS Infrastructure Destruction for ToogleMaster !!!"
 read -p "Are you sure you want to delete everything? (y/n) " -n 1 -r
 echo
@@ -40,7 +42,35 @@ aws dynamodb delete-table --table-name analytics_events
 echo "Deleting ElastiCache Redis Cluster: toogle-redis..."
 aws elasticache delete-cache-cluster --cache-cluster-id toogle-redis
 
-# 6. Delete Networking Resources (Dedicated VPC)
+# 6. Delete EKS Resources
+CLUSTER_NAME="toogle-cluster"
+NODE_GROUP_NAME="toogle-nodes"
+if aws eks describe-cluster --name "$CLUSTER_NAME" >/dev/null 2>&1; then
+    echo "Deleting EKS Node Group: $NODE_GROUP_NAME..."
+    aws eks delete-nodegroup --cluster-name "$CLUSTER_NAME" --nodegroup-name "$NODE_GROUP_NAME" 2>/dev/null
+    echo "Waiting for Node Group to be deleted (this can take a few minutes)..."
+    aws eks wait nodegroup-deleted --cluster-name "$CLUSTER_NAME" --nodegroup-name "$NODE_GROUP_NAME" 2>/dev/null
+
+    echo "Deleting EKS Cluster: $CLUSTER_NAME..."
+    aws eks delete-cluster --name "$CLUSTER_NAME"
+    echo "Waiting for Cluster to be deleted..."
+    aws eks wait cluster-deleted --name "$CLUSTER_NAME"
+fi
+
+# Delete IAM Roles
+echo "Deleting EKS IAM Roles..."
+aws iam detach-role-policy --role-name toogle-eks-cluster-role --policy-arn arn:aws:iam::aws:policy/AmazonEKSClusterPolicy 2>/dev/null
+aws iam delete-role --role-name toogle-eks-cluster-role 2>/dev/null
+
+aws iam detach-role-policy --role-name toogle-eks-node-role --policy-arn arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy 2>/dev/null
+aws iam detach-role-policy --role-name toogle-eks-node-role --policy-arn arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly 2>/dev/null
+aws iam detach-role-policy --role-name toogle-eks-node-role --policy-arn arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy 2>/dev/null
+aws iam delete-role --role-name toogle-eks-node-role 2>/dev/null
+
+echo "Waiting 30 seconds for resource deletion requests to propagate..."
+sleep 30
+
+# 7. Delete Networking Resources (Dedicated VPC)
 echo "Cleaning up networking resources..."
 
 # Fetch VPC ID
@@ -80,12 +110,29 @@ if [ ! -z "$VPC_ID" ] && [ "$VPC_ID" != "None" ]; then
     if [ ! -z "$IGW_ID" ] && [ "$IGW_ID" != "None" ]; then
         echo "Detaching and Deleting IGW: $IGW_ID"
         aws ec2 detach-internet-gateway --internet-gateway-id "$IGW_ID" --vpc-id "$VPC_ID"
+        sleep 5
         aws ec2 delete-internet-gateway --internet-gateway-id "$IGW_ID"
     fi
 
-    # Finally, Delete VPC
-    echo "Deleting VPC: $VPC_ID"
-    aws ec2 delete-vpc --vpc-id "$VPC_ID"
+    # Finally, Delete VPC with Retry Loop
+    echo "Waiting for all dependencies to clear before deleting VPC..."
+    MAX_VPC_RETRIES=10
+    V_COUNT=0
+    while [ $V_COUNT -lt $MAX_VPC_RETRIES ]; do
+        echo "Attempting to delete VPC: $VPC_ID (Attempt $((V_COUNT+1))/$MAX_VPC_RETRIES)..."
+        if aws ec2 delete-vpc --vpc-id "$VPC_ID" 2>/dev/null; then
+            echo "VPC $VPC_ID deleted successfully."
+            break
+        fi
+        
+        echo "VPC still has dependencies (probably RDS/Redis ENIs detaching). Waiting 30s..."
+        sleep 30
+        V_COUNT=$((V_COUNT+1))
+    done
+
+    if [ $V_COUNT -eq $MAX_VPC_RETRIES ]; then
+        echo "Warning: Could not delete VPC after $MAX_VPC_RETRIES attempts. You may need to delete it manually in the AWS Console if RDS/Redis are taking too long to terminate."
+    fi
 else
     echo "Dedicated VPC 'toogle-vpc' not found. Skipping networking cleanup."
 fi
