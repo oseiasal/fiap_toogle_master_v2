@@ -36,6 +36,31 @@ Após o build e inicialização, execute o smoke test:
 - **evaluation-service (Go):** "Hot path" de alta performance. (Porta 8004)
 - **analytics-service (Python):** Processador de eventos assíncronos. (Porta 8005)
 
+## ☁️ Infraestrutura AWS (Cloud)
+
+O projeto agora suporta o provisionamento automatizado da infraestrutura na AWS (RDS, ECR, SQS, DynamoDB, Redis e EKS) utilizando **Terraform**. Você tem dois caminhos para subir o ambiente:
+
+### Opção 1: Script Automatizado (Recomendado)
+Para uma experiência de "um clique" que provisiona a infraestrutura, faz o build das imagens, popula o banco de dados e configura os manifestos Kubernetes:
+
+```bash
+chmod +x setup-cloud.sh
+./setup-cloud.sh
+```
+*Este script automatiza o Terraform + Build/Push + Seeding + Patching do K8s.*
+
+### Opção 2: Terraform Manual (IaC)
+Se preferir gerenciar os recursos manualmente:
+
+1. Acesse a pasta: `cd terraform`
+2. Configure suas variáveis no arquivo `terraform.tfvars` (use o `.example` como base).
+3. Execute os comandos:
+```bash
+terraform init
+terraform plan
+terraform apply
+```
+
 ## ☸️ Kubernetes (EKS)
 Os manifestos para implantação no Kubernetes estão na pasta `/k8s`. Eles incluem:
 - **Namespace:** `toogle-master`
@@ -48,6 +73,8 @@ Os manifestos para implantação no Kubernetes estão na pasta `/k8s`. Eles incl
 ```bash
 kubectl apply -f k8s/namespace.yaml
 kubectl apply -f k8s/
+# Ingress controller que criará um endpoint através de um loadbalancer
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/aws/deploy.yaml
 ```
 
 ### Como Aplicar (Helm):
