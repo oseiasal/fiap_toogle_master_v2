@@ -1,0 +1,99 @@
+### ============================================================================
+### TOOGLE MASTER - KUBERNETES API REQUESTS (AWS LOAD BALANCER)
+### ============================================================================
+### Use este arquivo com o DNS do Ingress Controller após o deploy no EKS.
+### Todas as rotas são acessadas via um único Load Balancer (Porta 80).
+### ============================================================================
+
+# Substitua pelo DNS do seu LoadBalancer (ADDRESS obtido via: kubectl get ingress -n toogle-master)
+@lb_host = http://ab4de0645d0454c1cb406eb6431474f7-d1a7169f179500d0.elb.us-east-1.amazonaws.com
+
+# Substitua pelas chaves reais configuradas no deployment-summary.txt / Secrets
+@master_key = sua_chave_mestra_aqui
+@api_key = tm_key_f54b81bc161a5b84c277ed954384ae950c87adb8c795892db4abfaef75aaacab
+
+### ============================================================================
+### 1. AUTH SERVICE (Path: /auth)
+### ============================================================================
+
+### 1.1. Health Check
+GET {{lb_host}}/auth/health
+
+### 1.2. Criar nova chave de API (Requer MASTER_KEY)
+# @name createKey
+POST {{lb_host}}/auth/admin/keys
+Authorization: Bearer {{master_key}}
+Content-Type: application/json
+
+{
+    "name": "Chave de Teste EKS"
+}
+
+### 1.3. Validar chave de API
+GET {{lb_host}}/auth/validate
+Authorization: Bearer {{api_key}}
+
+
+### ============================================================================
+### 2. FLAG SERVICE (Path: /flags)
+### ============================================================================
+
+### 2.1. Health Check
+GET {{lb_host}}/flags/health
+
+### 2.2. Criar uma nova Flag
+POST {{lb_host}}/flags/flags
+Authorization: Bearer {{api_key}}
+Content-Type: application/json
+
+{
+    "name": "new_checkout_flow",
+    "description": "Ativa o novo fluxo de checkout",
+    "is_enabled": true
+}
+
+### 2.3. Listar todas as Flags
+GET {{lb_host}}/flags/flags
+Authorization: Bearer {{api_key}}
+
+
+### ============================================================================
+### 3. TARGETING SERVICE (Path: /rules)
+### ============================================================================
+
+### 3.1. Health Check
+GET {{lb_host}}/rules/health
+
+### 3.2. Criar uma regra para uma Flag
+POST {{lb_host}}/rules/rules
+Authorization: Bearer {{api_key}}
+Content-Type: application/json
+
+{
+    "flag_name": "new_checkout_flow",
+    "is_enabled": true,
+    "rules": {
+        "type": "PERCENTAGE",
+        "value": 50.0
+    }
+}
+
+
+### ============================================================================
+### 4. EVALUATION SERVICE (Path: /evaluate)
+### ============================================================================
+
+### 4.1. Health Check
+GET {{lb_host}}/evaluate/health
+
+### 4.2. Avaliar uma Flag para um Usuário
+GET {{lb_host}}/evaluate/evaluate?flag_name=new_checkout_flow&user_id=user_12345
+Authorization: Bearer {{api_key}}
+
+
+### ============================================================================
+### 5. ANALYTICS SERVICE (Path: /analytics)
+### ============================================================================
+
+### 5.1. Health Check
+GET {{lb_host}}/analytics/health

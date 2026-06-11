@@ -36,7 +36,10 @@ cd "$ROOT_DIR/aws-infra" && sh seed-databases.sh
 echo "Patching K8s manifests..."
 sh apply-k8s-patches.sh
 
+
+# Caso vá rodar localmente, basta comentar as linhas abaixo e usar o kubectl localmente
 aws eks update-kubeconfig --region us-east-1 --name toogle-cluster
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/aws/deploy.yaml # Instalação do Ingress Controller para AWS
 
 echo "========================================================"
 echo "INFRASTRUCTURE AND CONFIGURATION COMPLETE!"
