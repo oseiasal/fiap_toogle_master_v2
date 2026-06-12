@@ -68,7 +68,25 @@ if [ ! -z "$ANAL_SQS" ]; then
     sed -i "s|AWS_SQS_URL:.*|AWS_SQS_URL: $ANAL_SQS|g" "$K8S_DIR/analytics-service.yaml"
 fi
 
-# 6. Patching ACCOUNT_ID in all deployments
+# 6. Inject AWS Temporary Credentials (from environment)
+echo "Injecting AWS Temporary Credentials from environment..."
+AK_B64=$(echo -n "$AWS_ACCESS_KEY_ID" | base64 | tr -d '\n')
+SK_B64=$(echo -n "$AWS_SECRET_ACCESS_KEY" | base64 | tr -d '\n')
+ST_B64=$(echo -n "$AWS_SESSION_TOKEN" | base64 | tr -d '\n')
+
+if [ ! -z "$AK_B64" ] && [ ! -z "$SK_B64" ]; then
+    # Inject into Evaluation Service
+    sed -i "/AWS_SQS_URL:.*/a \  AWS_ACCESS_KEY_ID: $AK_B64\n  AWS_SECRET_ACCESS_KEY: $SK_B64\n  AWS_SESSION_TOKEN: $ST_B64" "$K8S_DIR/evaluation-service.yaml"
+    
+    # Inject into Analytics Service
+    sed -i "/AWS_SQS_URL:.*/a \  AWS_ACCESS_KEY_ID: $AK_B64\n  AWS_SECRET_ACCESS_KEY: $SK_B64\n  AWS_SESSION_TOKEN: $ST_B64" "$K8S_DIR/analytics-service.yaml"
+    
+    echo "AWS credentials injected into evaluation and analytics secrets."
+else
+    echo "Warning: AWS environment variables not found. Skipping credential injection."
+fi
+
+# 7. Patching ACCOUNT_ID in all deployments
 ACCOUNT_ID=$(grep "Account ID:" "$SUMMARY_FILE" | awk '{print $3}')
 if [ ! -z "$ACCOUNT_ID" ]; then
     echo "Updating ACCOUNT_ID to $ACCOUNT_ID in all K8s manifests..."

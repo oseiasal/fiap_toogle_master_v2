@@ -44,4 +44,7 @@ aws eks update-kubeconfig --region us-east-1 --name toogle-cluster
 echo "========================================================"
 echo "INFRASTRUCTURE AND CONFIGURATION COMPLETE!"
 echo "========================================================"
-echo "You can now deploy to EKS using: kubectl apply -f k8s/"
+echo "Deploying to EKS..."
+kubectl apply -f "$ROOT_DIR/k8s/"
+
+echo "Setup complete. You can access the application via the LoadBalancer DNS."
