@@ -10,6 +10,14 @@ output "rds_main_endpoint" {
   value = aws_db_instance.main_db.endpoint
 }
 
+output "rds_flag_endpoint" {
+  value = aws_db_instance.main_db.endpoint
+}
+
+output "rds_targeting_endpoint" {
+  value = aws_db_instance.targeting_db.endpoint
+}
+
 output "redis_endpoint" {
   value = aws_elasticache_cluster.main.cache_nodes[0].address
 }

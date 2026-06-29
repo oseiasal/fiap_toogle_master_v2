@@ -15,9 +15,10 @@ then
 fi
 
 # 1. Delete RDS Instances
-echo "Deleting RDS Instances (auth-db, main-db)..."
+echo "Deleting RDS Instances (auth-db, main-db, targeting-db)..."
 aws rds delete-db-instance --db-instance-identifier auth-db --skip-final-snapshot
 aws rds delete-db-instance --db-instance-identifier main-db --skip-final-snapshot
+aws rds delete-db-instance --db-instance-identifier targeting-db --skip-final-snapshot
 
 # 2. Delete ECR Repositories
 SERVICES=("analytics-service" "auth-service" "evaluation-service" "flag-service" "targeting-service")

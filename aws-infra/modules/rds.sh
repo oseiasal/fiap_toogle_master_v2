@@ -56,4 +56,19 @@ aws rds create-db-instance \
     --publicly-accessible \
     --vpc-security-group-ids "$SG_ID" \
     --db-subnet-group-name "toogle-db-subnet-group" \
-    --tags Key=Project,Value=ToogleMaster Key=Service,Value=Core
+    --tags Key=Project,Value=ToogleMaster Key=Service,Value=Flag
+
+echo "Creating RDS Postgres Instance: targeting-db..."
+aws rds create-db-instance \
+    --db-instance-identifier targeting-db \
+    --db-instance-class db.t3.medium \
+    --engine postgres \
+    --allocated-storage 20 \
+    --master-username "dbuser" \
+    --master-user-password "$PASSWORD" \
+    --backup-retention-period 7 \
+    --publicly-accessible \
+    --vpc-security-group-ids "$SG_ID" \
+    --db-subnet-group-name "toogle-db-subnet-group" \
+    --tags Key=Project,Value=ToogleMaster Key=Service,Value=Targeting
+

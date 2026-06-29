@@ -54,6 +54,9 @@ AUTH_DB_ENDPOINT=${AUTH_DB_ENDPOINT:-"<AUTH_DB_NOT_READY>"}
 MAIN_DB_ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier main-db --query 'DBInstances[0].Endpoint.Address' --output text 2>/dev/null)
 MAIN_DB_ENDPOINT=${MAIN_DB_ENDPOINT:-"<MAIN_DB_NOT_READY>"}
 
+TARGETING_DB_ENDPOINT=$(aws rds describe-db-instances --db-instance-identifier targeting-db --query 'DBInstances[0].Endpoint.Address' --output text 2>/dev/null)
+TARGETING_DB_ENDPOINT=${TARGETING_DB_ENDPOINT:-"<TARGETING_DB_NOT_READY>"}
+
 DB_USER="dbuser"
 DB_PASS="SenhaTeste123" # Matching rds.sh
 
@@ -80,6 +83,7 @@ DynamoDB Table: $DYNAMO_TABLE
 Redis URL: $REDIS_URL
 RDS Auth-DB Endpoint: $AUTH_DB_ENDPOINT
 RDS Main-DB Endpoint: $MAIN_DB_ENDPOINT
+RDS Targeting-DB Endpoint: $TARGETING_DB_ENDPOINT
 
 --- MICROSERVICE REPOSITORIES ---
 Analytics:  $ECR_URL/analytics-service:latest
@@ -92,16 +96,18 @@ Targeting:  $ECR_URL/targeting-service:latest
 (Make sure these are created inside your RDS instances)
 Auth Service:      auth_db      (Instance: auth-db)
 Flag Service:      flag_db      (Instance: main-db)
-Targeting Service: targeting_db (Instance: main-db)
+Targeting Service: targeting_db (Instance: targeting-db)
 
 --- MANUAL DATABASE SETUP ---
 You can create the databases using psql (or any DB client):
 1. Connect to Auth Instance:
    psql -h $AUTH_DB_ENDPOINT -U $DB_USER -d postgres -c "CREATE DATABASE auth_db;"
 
-2. Connect to Main Instance:
+2. Connect to Flag Instance:
    psql -h $MAIN_DB_ENDPOINT -U $DB_USER -d postgres -c "CREATE DATABASE flag_db;"
-   psql -h $MAIN_DB_ENDPOINT -U $DB_USER -d postgres -c "CREATE DATABASE targeting_db;"
+
+3. Connect to Targeting Instance:
+   psql -h $TARGETING_DB_ENDPOINT -U $DB_USER -d postgres -c "CREATE DATABASE targeting_db;"
 
 --- KUBERNETES SECRETS (BASE64) ---
 Use these values in your K8s Secret manifests or via kubectl.
@@ -114,7 +120,7 @@ Use these values in your K8s Secret manifests or via kubectl.
    DATABASE_URL: $(encode_base64 "postgres://$DB_USER:$DB_PASS@$MAIN_DB_ENDPOINT:5432/flag_db")
 
 3. Targeting Service Secret:
-   DATABASE_URL: $(encode_base64 "postgres://$DB_USER:$DB_PASS@$MAIN_DB_ENDPOINT:5432/targeting_db")
+   DATABASE_URL: $(encode_base64 "postgres://$DB_USER:$DB_PASS@$TARGETING_DB_ENDPOINT:5432/targeting_db")
 
 4. Evaluation Service Secret:
    REDIS_URL:       $(encode_base64 "$REDIS_URL")

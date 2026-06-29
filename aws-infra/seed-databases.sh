@@ -16,6 +16,7 @@ echo "Reading database configuration from $SUMMARY_FILE..."
 # Extracting endpoints and credentials
 AUTH_DB_HOST=$(grep "RDS Auth-DB Endpoint:" "$SUMMARY_FILE" | awk '{print $4}')
 MAIN_DB_HOST=$(grep "RDS Main-DB Endpoint:" "$SUMMARY_FILE" | awk '{print $4}')
+TARGETING_DB_HOST=$(grep "RDS Targeting-DB Endpoint:" "$SUMMARY_FILE" | awk '{print $4}')
 DB_USER="dbuser"
 DB_PASS="SenhaTeste123"
 
@@ -41,7 +42,7 @@ create_db_if_missing() {
 
 create_db_if_missing $AUTH_DB_HOST "auth_db"
 create_db_if_missing $MAIN_DB_HOST "flag_db"
-create_db_if_missing $MAIN_DB_HOST "targeting_db"
+create_db_if_missing $TARGETING_DB_HOST "targeting_db"
 
 echo "--------------------------------------------------------"
 echo "Step 2: Seeding Auth Database (auth_db)..."
@@ -54,16 +55,18 @@ MSYS_NO_PATHCONV=1 docker run --rm -v "$SQL_ABS_PATH:/sql" \
     psql -h $AUTH_DB_HOST -U $DB_USER -d auth_db -f /sql/init-auth.sql
 
 echo "--------------------------------------------------------"
-echo "Seeding Main Database (flag_db and targeting_db)..."
+echo "Seeding Flag Database (flag_db)..."
 MSYS_NO_PATHCONV=1 docker run --rm -v "$SQL_ABS_PATH:/sql" \
     -e PGPASSWORD=$DB_PASS \
     postgres:alpine \
     psql -h $MAIN_DB_HOST -U $DB_USER -d flag_db -f /sql/init-main.sql
 
+echo "--------------------------------------------------------"
+echo "Seeding Targeting Database (targeting_db)..."
 MSYS_NO_PATHCONV=1 docker run --rm -v "$SQL_ABS_PATH:/sql" \
     -e PGPASSWORD=$DB_PASS \
     postgres:alpine \
-    psql -h $MAIN_DB_HOST -U $DB_USER -d targeting_db -f /sql/init-main.sql
+    psql -h $TARGETING_DB_HOST -U $DB_USER -d targeting_db -f /sql/init-main.sql
 
 echo "--------------------------------------------------------"
 echo "Database seeding complete!"

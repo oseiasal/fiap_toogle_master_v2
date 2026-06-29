@@ -21,6 +21,7 @@ echo "Fetching configuration from Terraform..."
 REGION=$(terraform output -raw region 2>/dev/null || echo "us-east-1")
 AUTH_DB_ENDPOINT=$(terraform output -raw rds_auth_endpoint | cut -d: -f1)
 MAIN_DB_ENDPOINT=$(terraform output -raw rds_main_endpoint | cut -d: -f1)
+TARGETING_DB_ENDPOINT=$(terraform output -raw rds_targeting_endpoint | cut -d: -f1)
 REDIS_URL="redis://$(terraform output -raw redis_endpoint):6379"
 SQS_URL=$(terraform output -raw sqs_url)
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
@@ -29,6 +30,7 @@ DB_USER="dbuser"
 DB_PASS=$(terraform output -raw db_password 2>/dev/null || echo "SenhaTeste123")
 
 # Generate a temporary deployment-summary.txt compatible with existing scripts
+# We use the Main DB for Flag Service, and the new Targeting DB for Targeting Service
 OUTPUT_FILE="../deployment-summary.txt"
 
 # Function to encode to base64
@@ -55,6 +57,7 @@ DynamoDB Table: analytics_events
 Redis URL: $REDIS_URL
 RDS Auth-DB Endpoint: $AUTH_DB_ENDPOINT
 RDS Main-DB Endpoint: $MAIN_DB_ENDPOINT
+RDS Targeting-DB Endpoint: $TARGETING_DB_ENDPOINT
 
 --- MICROSERVICE REPOSITORIES ---
 Analytics:  $ECR_URL/analytics-service:latest
@@ -72,7 +75,7 @@ Targeting:  $ECR_URL/targeting-service:latest
    DATABASE_URL: $(encode_base64 "postgres://$DB_USER:$DB_PASS@$MAIN_DB_ENDPOINT:5432/flag_db")
 
 3. Targeting Service Secret:
-   DATABASE_URL: $(encode_base64 "postgres://$DB_USER:$DB_PASS@$MAIN_DB_ENDPOINT:5432/targeting_db")
+   DATABASE_URL: $(encode_base64 "postgres://$DB_USER:$DB_PASS@$TARGETING_DB_ENDPOINT:5432/targeting_db")
 
 4. Evaluation Service Secret:
    REDIS_URL:       $(encode_base64 "$REDIS_URL")
