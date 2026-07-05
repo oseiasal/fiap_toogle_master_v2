@@ -9,15 +9,6 @@ data:
   AWS_DYNAMODB_TABLE: "analytics_events"
 
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: analytics-service-secret
-  namespace: toogle-master
-type: Opaque
-data:
-  # AWS_SQS_URL: https://sqs.us-east-1.amazonaws.com/123456789012/toogle-events
-  AWS_SQS_URL: aHR0cHM6Ly9zcXMudXMtZWFzdC0xLmFtYXpvbmF3cy5jb20vMTIzNDU2Nzg5MDEyL3Rvb2dsZS1ldmVudHM=
 
 ---
 apiVersion: v1
@@ -52,7 +43,7 @@ spec:
     spec:
       containers:
       - name: analytics-service
-        image: <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/analytics-service:latest
+        image: 112719111297.dkr.ecr.us-east-1.amazonaws.com/analytics-service:latest
         ports:
         - containerPort: 8005
         env:
@@ -76,6 +67,24 @@ spec:
             secretKeyRef:
               name: analytics-service-secret
               key: AWS_SQS_URL
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: analytics-service-secret
+              key: AWS_ACCESS_KEY_ID
+              optional: true
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: analytics-service-secret
+              key: AWS_SECRET_ACCESS_KEY
+              optional: true
+        - name: AWS_SESSION_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: analytics-service-secret
+              key: AWS_SESSION_TOKEN
+              optional: true
         resources:
           requests:
             cpu: "100m"
