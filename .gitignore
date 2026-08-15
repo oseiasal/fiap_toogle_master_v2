@@ -22,3 +22,5 @@ deployment-summary.txt
 k8s/.env
 k8s/.env.*
 k8s/*.env
+
+.terragrunt-cache
