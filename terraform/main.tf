@@ -23,6 +23,10 @@ module "eks" {
   cluster_version    = var.k8s_version
   subnet_ids         = module.network.public_subnet_ids
   security_group_ids = [module.network.security_group_id]
+  instance_types     = var.eks_instance_types
+  desired_size       = var.eks_desired_size
+  min_size           = var.eks_min_size
+  max_size           = var.eks_max_size
 }
 
 module "rds" {
@@ -33,6 +37,8 @@ module "rds" {
   db_subnet_group_name = module.network.db_subnet_group_name
   security_group_ids   = [module.network.security_group_id]
   publicly_accessible  = true
+  instance_class       = var.rds_instance_class
+  allocated_storage    = var.rds_allocated_storage
 }
 
 module "redis" {
@@ -40,6 +46,7 @@ module "redis" {
 
   project_name       = var.project_name
   cluster_id         = "toogle-redis"
+  node_type          = var.redis_node_type
   subnet_group_name  = module.network.elasticache_subnet_group_name
   security_group_ids = [module.network.security_group_id]
 }
