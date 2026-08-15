@@ -1,62 +1,91 @@
-# Infrastructure as Code with Terraform - ToogleMaster
+# Infrastructure as Code with Terraform - ToogleMaster (Modular)
 
-This directory contains the Terraform configuration to provision the AWS infrastructure for the ToogleMaster project.
+This directory contains the modular Terraform configuration to provision and manage the AWS infrastructure for the **ToogleMaster** microservices project.
 
-## Resources Provisioned
+---
 
-- **Networking**: VPC, Subnets (2 AZs), IGW, Route Tables, and Security Groups.
-- **RDS PostgreSQL**:
-    - `auth-db`: Instance for authentication data.
-    - `main-db`: Instance for flags and targeting data.
-- **ECR Repositories**: 5 repositories for the microservices.
-- **SQS**: `toogle-events` queue.
-- **DynamoDB**: `analytics_events` table.
-- **Redis (ElastiCache)**: `toogle-redis` cluster.
-- **EKS**: Kubernetes cluster (`toogle-cluster`) and a managed Node Group.
+## 🏗️ Architecture & Modules
 
-## Prerequisites
+The infrastructure is organized into dedicated reusable modules located in [`modules/`](file:///C:/Users/oseia/OneDrive/Área%20de%20Trabalho/FIAP_MODULO_3/fiap_toogle_master_v2/terraform/modules):
 
-1.  **Terraform CLI** installed.
-2.  **AWS CLI** configured with appropriate credentials.
-3.  **Permissions**: Ensure you have permissions to manage the listed resources. This setup is optimized for **AWS Academy / Lab environments** by reusing the existing `LabRole`.
+```text
+terraform/
+├── backend.tf                         # Remote state configuration (S3 + DynamoDB Locking)
+├── main.tf                            # Root module orchestration
+├── providers.tf                       # Terraform & AWS provider setup
+├── variables.tf                       # Root variables
+├── terraform.tfvars                   # Variable assignments (local/secrets)
+├── terraform.tfvars.example           # Example variable definitions
+├── outputs.tf                         # Infrastructure outputs for scripts & K8s
+├── deploy-helper.sh                   # Post-provisioning bridge for K8s .env generation
+├── backend-bootstrap/                 # Optional bootstrap IaC for S3 State Bucket & Lock Table
+│   ├── main.tf
+│   ├── variables.tf
+│   └── outputs.tf
+└── modules/
+    ├── network/                       # VPC, Subnets (AZ-a/b), IGW, Route Tables, SG & Subnet Groups
+    ├── eks/                           # EKS Cluster (v1.31) & Managed Node Group
+    ├── rds/                           # PostgreSQL RDS instances (auth-db, main-db, targeting-db)
+    ├── redis/                         # ElastiCache Redis Cluster
+    ├── dynamodb/                      # DynamoDB analytics_events Table (On-Demand)
+    ├── sqs/                           # SQS toogle-events Queue
+    └── ecr/                           # 5 ECR Repositories with Image Scan on push
+```
 
-## Usage
+---
 
-1.  **Initialize Terraform**:
-    ```bash
-    terraform init
-    ```
+## 🔒 Remote State Backend (S3 + DynamoDB)
 
-2.  **Review the Plan**:
-    ```bash
-    terraform plan
-    ```
+State locking and shared remote state are configured in [`backend.tf`](file:///C:/Users/oseia/OneDrive/Área%20de%20Trabalho/FIAP_MODULO_3/fiap_toogle_master_v2/terraform/backend.tf):
 
-3.  **Apply the Changes**:
-    ```bash
-    terraform apply
-    ```
+```hcl
+terraform {
+  backend "s3" {
+    bucket         = "tooglemaster-terraform-state"
+    key            = "tooglemaster/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "tooglemaster-terraform-locks"
+    encrypt        = true
+  }
+}
+```
 
-4.  **Retrieve Outputs**:
-    After a successful apply, Terraform will display the endpoints for RDS, Redis, SQS, and EKS. You can also view them anytime using:
-    ```bash
-    terraform output
-    ```
+> **Bootstrap Note:** If you are provisioning in a new AWS account, you can create the S3 bucket and DynamoDB lock table first by running `terraform apply` inside [`backend-bootstrap/`](file:///C:/Users/oseia/OneDrive/Área%20de%20Trabalho/FIAP_MODULO_3/fiap_toogle_master_v2/terraform/backend-bootstrap).
 
-## Variables
+---
 
-You can customize the setup by creating a `terraform.tfvars` file or passing variables via CLI:
+## 🚀 Usage
 
-- `region`: AWS region (default: `us-east-1`).
-- `db_password`: Master password for RDS (default: `SenhaTeste123`).
-- `lab_role_name`: The name of the existing IAM role for EKS (default: `LabRole`).
+### 1. Configure Variables
+Copy the template and configure your values (such as `db_password`):
+```bash
+cp terraform.tfvars.example terraform.tfvars
+```
 
-## Why Terraform?
+### 2. Initialize Terraform
+```bash
+terraform init
+```
 
-This replaces the previous Bash scripts (`aws-infra/`) with a declarative approach, ensuring:
-- **State Management**: Terraform keeps track of what was created.
-- **Idempotency**: Running `apply` multiple times won't create duplicate resources.
-- **Ease of Cleanup**: Remove everything with a single command:
-    ```bash
-    terraform destroy
-    ```
+*(If testing locally without AWS S3 backend created yet, you can run `terraform init -backend=false`)*
+
+### 3. Review Plan
+```bash
+terraform plan
+```
+
+### 4. Provision Infrastructure
+```bash
+terraform apply
+```
+
+### 5. Generate Kubernetes `.env` & Post-Deploy
+Run the deploy helper script to automatically inject RDS/Redis/SQS endpoints into the Kubernetes Kustomize environment:
+```bash
+./deploy-helper.sh
+```
+
+### 6. Teardown / Cleanup
+```bash
+terraform destroy
+```

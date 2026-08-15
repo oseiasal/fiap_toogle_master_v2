@@ -1,16 +1,14 @@
-data "aws_availability_zones" "available" {}
-
-data "aws_iam_role" "lab_role" {
-  name = var.lab_role_name
+data "aws_availability_zones" "available" {
+  state = "available"
 }
 
 resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
+  cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
   enable_dns_support   = true
 
   tags = {
-    Name    = "toogle-vpc"
+    Name    = "${lower(var.project_name)}-vpc"
     Project = var.project_name
   }
 }
@@ -19,31 +17,31 @@ resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    Name    = "toogle-igw"
+    Name    = "${lower(var.project_name)}-igw"
     Project = var.project_name
   }
 }
 
 resource "aws_subnet" "public_a" {
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.1.0/24"
+  cidr_block              = var.subnet_a_cidr
   availability_zone       = data.aws_availability_zones.available.names[0]
   map_public_ip_on_launch = true
 
   tags = {
-    Name    = "toogle-subnet-a"
+    Name    = "${lower(var.project_name)}-subnet-a"
     Project = var.project_name
   }
 }
 
 resource "aws_subnet" "public_b" {
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.2.0/24"
+  cidr_block              = var.subnet_b_cidr
   availability_zone       = data.aws_availability_zones.available.names[1]
   map_public_ip_on_launch = true
 
   tags = {
-    Name    = "toogle-subnet-b"
+    Name    = "${lower(var.project_name)}-subnet-b"
     Project = var.project_name
   }
 }
@@ -57,7 +55,7 @@ resource "aws_route_table" "public" {
   }
 
   tags = {
-    Name    = "toogle-rt"
+    Name    = "${lower(var.project_name)}-rt"
     Project = var.project_name
   }
 }
@@ -73,11 +71,12 @@ resource "aws_route_table_association" "b" {
 }
 
 resource "aws_security_group" "main" {
-  name        = "toogle-master-sg"
-  description = "Security group for ToogleMaster (Public Access)"
+  name        = "${lower(var.project_name)}-sg"
+  description = "Security group for ${var.project_name}"
   vpc_id      = aws_vpc.main.id
 
   ingress {
+    description = "PostgreSQL"
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
@@ -85,6 +84,7 @@ resource "aws_security_group" "main" {
   }
 
   ingress {
+    description = "Redis"
     from_port   = 6379
     to_port     = 6379
     protocol    = "tcp"
@@ -92,6 +92,7 @@ resource "aws_security_group" "main" {
   }
 
   ingress {
+    description = "Microservices HTTP ports"
     from_port   = 8001
     to_port     = 8005
     protocol    = "tcp"
@@ -99,13 +100,15 @@ resource "aws_security_group" "main" {
   }
 
   ingress {
-    from_port = 0
-    to_port   = 0
-    protocol  = "-1"
-    self      = true
+    description = "Self internal communication"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    self        = true
   }
 
   egress {
+    description = "Allow all outbound traffic"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -113,27 +116,27 @@ resource "aws_security_group" "main" {
   }
 
   tags = {
-    Name    = "toogle-master-sg"
+    Name    = "${lower(var.project_name)}-sg"
     Project = var.project_name
   }
 }
 
 resource "aws_db_subnet_group" "main" {
-  name       = "toogle-db-subnet-group"
+  name       = "${lower(var.project_name)}-db-subnet-group"
   subnet_ids = [aws_subnet.public_a.id, aws_subnet.public_b.id]
 
   tags = {
-    Name    = "toogle-db-subnet-group"
+    Name    = "${lower(var.project_name)}-db-subnet-group"
     Project = var.project_name
   }
 }
 
 resource "aws_elasticache_subnet_group" "main" {
-  name       = "toogle-cache-subnet-group"
+  name       = "${lower(var.project_name)}-cache-subnet-group"
   subnet_ids = [aws_subnet.public_a.id, aws_subnet.public_b.id]
 
   tags = {
-    Name    = "toogle-cache-subnet-group"
+    Name    = "${lower(var.project_name)}-cache-subnet-group"
     Project = var.project_name
   }
 }
