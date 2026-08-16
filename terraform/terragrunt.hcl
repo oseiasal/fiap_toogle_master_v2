@@ -30,13 +30,9 @@ provider "aws" {
 EOF
 }
 
-# Configura e cria automaticamente o Backend remoto no S3 com State Lock via DynamoDB
+# Configura o Backend remoto nativo do Terragrunt (criação automática de S3 e DynamoDB)
 remote_state {
   backend = "s3"
-  generate = {
-    path      = "backend.tf"
-    if_exists = "overwrite_terragrunt"
-  }
   config = {
     bucket         = "tooglemaster-terragrunt-state-${get_aws_account_id()}"
     key            = "${path_relative_to_include()}/terraform.tfstate"
