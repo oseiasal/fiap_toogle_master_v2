@@ -10,6 +10,7 @@ module "network" {
   source = "./modules/network"
 
   project_name = var.project_name
+  cluster_name = "toogle-cluster"
 }
 
 module "eks" {
@@ -21,8 +22,8 @@ module "eks" {
   cluster_role_arn   = module.iam.cluster_role_arn
   node_role_arn      = module.iam.node_role_arn
   cluster_version    = var.k8s_version
-  subnet_ids         = module.network.public_subnet_ids
-  security_group_ids = [module.network.security_group_id]
+  subnet_ids         = module.network.private_app_subnet_ids
+  security_group_ids = [module.network.eks_nodes_security_group_id]
   instance_types     = var.eks_instance_types
   desired_size       = var.eks_desired_size
   min_size           = var.eks_min_size
@@ -35,8 +36,8 @@ module "rds" {
   project_name         = var.project_name
   db_password          = var.db_password
   db_subnet_group_name = module.network.db_subnet_group_name
-  security_group_ids   = [module.network.security_group_id]
-  publicly_accessible  = true
+  security_group_ids   = [module.network.rds_security_group_id]
+  publicly_accessible  = false
   instance_class       = var.rds_instance_class
   allocated_storage    = var.rds_allocated_storage
 }
@@ -48,7 +49,7 @@ module "redis" {
   cluster_id         = "toogle-redis"
   node_type          = var.redis_node_type
   subnet_group_name  = module.network.elasticache_subnet_group_name
-  security_group_ids = [module.network.security_group_id]
+  security_group_ids = [module.network.redis_security_group_id]
 }
 
 module "dynamodb" {

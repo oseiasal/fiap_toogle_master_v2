@@ -3,6 +3,52 @@ output "vpc_id" {
   value       = module.network.vpc_id
 }
 
+output "vpc_cidr" {
+  description = "CIDR block of the VPC"
+  value       = module.network.vpc_cidr
+}
+
+# --- Subnets 3-Tier ---
+
+output "public_subnet_ids" {
+  description = "IDs of Tier 1 Public Subnets (ALB / Ingress / NAT)"
+  value       = module.network.public_subnet_ids
+}
+
+output "private_app_subnet_ids" {
+  description = "IDs of Tier 2 Private Application Subnets (EKS Compute / Redis)"
+  value       = module.network.private_app_subnet_ids
+}
+
+output "isolated_db_subnet_ids" {
+  description = "IDs of Tier 3 Isolated Database Subnets (RDS PostgreSQL)"
+  value       = module.network.isolated_db_subnet_ids
+}
+
+output "nat_gateway_ip" {
+  description = "Elastic IP address of the NAT Gateway"
+  value       = module.network.nat_gateway_ip
+}
+
+# --- Security Groups ---
+
+output "alb_security_group_id" {
+  description = "Security Group ID for public Application Load Balancers"
+  value       = module.network.alb_security_group_id
+}
+
+output "eks_nodes_security_group_id" {
+  description = "Security Group ID for EKS Worker Nodes"
+  value       = module.network.eks_nodes_security_group_id
+}
+
+output "rds_security_group_id" {
+  description = "Security Group ID for RDS PostgreSQL"
+  value       = module.network.rds_security_group_id
+}
+
+# --- Endpoints de Recursos ---
+
 output "rds_auth_endpoint" {
   description = "Endpoint address for Auth DB"
   value       = module.rds.auth_db_endpoint

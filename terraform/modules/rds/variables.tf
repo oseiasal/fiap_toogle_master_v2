@@ -28,7 +28,7 @@ variable "allocated_storage" {
 }
 
 variable "db_subnet_group_name" {
-  description = "DB subnet group name"
+  description = "DB subnet group name (pointing to isolated database subnets)"
   type        = string
 }
 
@@ -38,7 +38,7 @@ variable "security_group_ids" {
 }
 
 variable "publicly_accessible" {
-  description = "Whether the DB instance is publicly accessible"
+  description = "Whether the DB instance is publicly accessible (Default: false for 3-tier isolation)"
   type        = bool
-  default     = true
+  default     = false
 }
