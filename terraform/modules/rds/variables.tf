@@ -42,3 +42,9 @@ variable "publicly_accessible" {
   type        = bool
   default     = false
 }
+
+variable "multi_az" {
+  description = "Specifies if the RDS instance is multi-AZ (Default: false for Single-AZ cost-efficiency)"
+  type        = bool
+  default     = false
+}

@@ -72,6 +72,12 @@ variable "rds_allocated_storage" {
   default     = 20
 }
 
+variable "rds_multi_az" {
+  description = "Specifies if RDS instances are multi-AZ (Default: false for Single-AZ)"
+  type        = bool
+  default     = false
+}
+
 variable "redis_node_type" {
   description = "ElastiCache Redis node type (ex: 'cache.t3.micro', 'cache.t3.small', 'cache.t3.medium')"
   type        = string

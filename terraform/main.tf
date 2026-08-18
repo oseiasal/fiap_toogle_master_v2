@@ -40,6 +40,7 @@ module "rds" {
   publicly_accessible  = false
   instance_class       = var.rds_instance_class
   allocated_storage    = var.rds_allocated_storage
+  multi_az             = var.rds_multi_az
 }
 
 module "redis" {

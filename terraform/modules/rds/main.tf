@@ -8,6 +8,7 @@ resource "aws_db_instance" "auth_db" {
   db_subnet_group_name   = var.db_subnet_group_name
   vpc_security_group_ids = var.security_group_ids
   publicly_accessible    = var.publicly_accessible
+  multi_az               = var.multi_az
   skip_final_snapshot    = true
 
   tags = {
@@ -26,6 +27,7 @@ resource "aws_db_instance" "main_db" {
   db_subnet_group_name   = var.db_subnet_group_name
   vpc_security_group_ids = var.security_group_ids
   publicly_accessible    = var.publicly_accessible
+  multi_az               = var.multi_az
   skip_final_snapshot    = true
 
   tags = {
@@ -44,6 +46,7 @@ resource "aws_db_instance" "targeting_db" {
   db_subnet_group_name   = var.db_subnet_group_name
   vpc_security_group_ids = var.security_group_ids
   publicly_accessible    = var.publicly_accessible
+  multi_az               = var.multi_az
   skip_final_snapshot    = true
 
   tags = {
