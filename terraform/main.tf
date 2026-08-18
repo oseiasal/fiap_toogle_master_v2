@@ -66,16 +66,3 @@ module "sqs" {
   project_name = var.project_name
   queue_name   = "toogle-events"
 }
-
-module "ecr" {
-  source = "./modules/ecr"
-
-  project_name = var.project_name
-  services = [
-    "analytics-service",
-    "auth-service",
-    "evaluation-service",
-    "flag-service",
-    "targeting-service"
-  ]
-}

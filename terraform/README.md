@@ -9,72 +9,71 @@ This directory contains the **Terragrunt & Terraform** modular infrastructure se
 ```text
 terraform/
 ├── terragrunt.hcl                             # Root Terragrunt config (Dynamic S3 Backend + AWS Provider)
-├── main.tf                                    # Root Terraform module orchestration
+├── main.tf                                    # Root Terraform module orchestration (Compute & Data)
 ├── variables.tf                               # Root Terraform input variables
 ├── outputs.tf                                 # Infrastructure outputs
+├── versions.tf                                # Terraform & AWS Provider versions
+├── INVENTARIO.md                              # Detailed Architecture, Resource Inventory & AWS Cost Matrix
 ├── deploy-helper.sh                           # Post-provisioning bridge for K8s .env files
 ├── modules/                                   # Reusable Terraform Modules
 │   ├── iam/                                   # Dedicated EKS Control Plane & Node Group IAM Roles & Policies
-│   ├── network/                               # VPC, Subnets (AZ-a/b), IGW, Route Tables, SG & Subnet Groups
+│   ├── network/                               # 3-Tier VPC, Subnets (AZ-a/b), IGW, NAT Gateway, SGs
 │   ├── eks/                                   # EKS Cluster (v1.31) & Managed Node Group
 │   ├── rds/                                   # PostgreSQL RDS instances (auth-db, main-db, targeting-db)
 │   ├── redis/                                 # ElastiCache Redis Cluster
 │   ├── dynamodb/                              # DynamoDB analytics_events Table (On-Demand)
 │   ├── sqs/                                   # SQS toogle-events Queue
 │   └── ecr/                                   # 5 ECR Repositories with Image Scan on push
-└── environments/                              # Multi-Environment Stacks
-    ├── dev/
-    │   ├── env.hcl                            # Environment name ("dev")
-    │   └── terragrunt.hcl                     # Dev inputs and execution settings
+└── environments/                              # Multi-Stack Environments
+    ├── shared/                                # 🌟 Shared & Persistent Layer (Created once, independent)
+    │   └── ecr/
+    │       ├── env.hcl                        # environment = "shared"
+    │       └── terragrunt.hcl                 # 5 ECR Repositories for Docker Images
+    ├── dev/                                   # 🔄 Ephemeral Runtime Layer (Spin up & Tear down anytime)
+    │   ├── env.hcl                            # environment = "dev"
+    │   └── terragrunt.hcl                     # VPC 3-Tier, EKS, RDS, Redis, SQS, DynamoDB
     ├── staging/
-    │   ├── env.hcl                            # Environment name ("staging")
-    │   └── terragrunt.hcl                     # Staging inputs and execution settings
+    │   ├── env.hcl                            # environment = "staging"
+    │   └── terragrunt.hcl
     └── prod/
-        ├── env.hcl                            # Environment name ("prod")
-        └── terragrunt.hcl                     # Prod inputs and execution settings
+        ├── env.hcl                            # environment = "prod"
+        └── terragrunt.hcl
 ```
 
 ---
 
-## ⚡ Why Terragrunt?
+## ⚡ Why Separate ECR from Dev/Prod Environments?
 
-1. **Automatic Remote State Creation:**  
-   Terragrunt automatically creates the S3 Bucket and DynamoDB Lock Table in your AWS account on your first `terragrunt run` if they do not exist.
-2. **DRY (Don't Repeat Yourself):**  
-   Provider configurations and S3 State Locking are defined once in the root `terragrunt.hcl` and inherited across all environments (`dev`, `staging`, `prod`).
-3. **Environment Isolation:**  
-   Each environment maintains its own isolated `.tfstate` file in S3 (`dev/terraform.tfstate`, `prod/terraform.tfstate`).
+1. **Persistent Container Registries:**  
+   Docker images built by CI/CD pipelines (GitHub Actions) remain safe in ECR even when the Kubernetes cluster or RDS databases are destroyed to save costs.
+2. **Cost-Effective Teardown:**  
+   Running `terragrunt destroy` inside `environments/dev` removes EC2, RDS, and NAT Gateway without wiping out your Docker images.
 
 ---
 
 ## 🚀 Usage Guide
 
 ### 1. Authenticate with AWS
-```powershell
-aws sso login
-$env:AWS_PROFILE="seu-perfil"
+```bash
+aws login --profile login
 ```
 
-### 2. Plan an Environment (e.g., `dev`)
-```powershell
-cd environments/dev
-terragrunt plan
-```
-
-### 3. Deploy an Environment (e.g., `dev`)
-```powershell
-cd environments/dev
+### 2. Provision Shared ECR Repositories (Once)
+```bash
+cd environments/shared/ecr
 terragrunt apply
 ```
 
-### 4. Deploy All Environments / Multi-Stack
-```powershell
-cd environments
-terragrunt run-all apply
+### 3. Deploy Dev Environment (Runtime Compute & Data)
+```bash
+cd environments/dev
+terragrunt plan
+terragrunt apply
 ```
 
-### 5. Destroy / Teardown
-```powershell
+### 4. Teardown Dev Environment (Zero Running Cost)
+```bash
 cd environments/dev
 terragrunt destroy
 ```
+*(Your ECR repositories and Docker images stay 100% intact!)*

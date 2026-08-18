@@ -79,11 +79,6 @@ output "sqs_url" {
   value       = module.sqs.queue_url
 }
 
-output "ecr_repository_urls" {
-  description = "Map of ECR repository names to their URLs"
-  value       = module.ecr.repository_urls
-}
-
 output "eks_cluster_endpoint" {
   description = "Endpoint for EKS control plane"
   value       = module.eks.cluster_endpoint
