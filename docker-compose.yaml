@@ -10,7 +10,7 @@ services:
     ports:
       - "5431:5432"
     volumes:
-      - ./docker/init-auth.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./services/auth-service/db/init.sql:/docker-entrypoint-initdb.d/init.sql
 
   postgres-main:
     image: postgres:15-alpine
@@ -21,7 +21,8 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./docker/init-main.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./services/flag-service/db/init.sql:/docker-entrypoint-initdb.d/01-flag-init.sql
+      - ./services/targeting-service/db/init.sql:/docker-entrypoint-initdb.d/02-targeting-init.sql
 
   redis:
     image: redis:7-alpine
