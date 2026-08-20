@@ -7,8 +7,10 @@ variable "region" {
 variable "db_password" {
   description = "Database master password for RDS instances"
   type        = string
+  default     = "DevSenhaMaster123!"
   sensitive   = true
 }
+
 
 variable "create_iam_roles" {
   description = "Set to true to create dedicated IAM Roles and Policies (Personal AWS account), or false to use existing LabRole (AWS Academy)"
