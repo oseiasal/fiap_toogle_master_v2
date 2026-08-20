@@ -62,6 +62,13 @@ variable "eks_max_size" {
   default     = 3
 }
 
+variable "eks_ami_type" {
+  description = "AMI Type for EKS Worker Nodes (e.g., AL2023_ARM_64_STANDARD, AL2023_x86_64_STANDARD)"
+  type        = string
+  default     = "AL2023_ARM_64_STANDARD"
+}
+
+
 variable "rds_instance_class" {
   description = "RDS PostgreSQL instance class (ex: 'db.t3.micro', 'db.t3.small', 'db.t3.medium')"
   type        = string

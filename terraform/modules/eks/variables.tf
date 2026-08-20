@@ -70,3 +70,10 @@ variable "max_size" {
   type        = number
   default     = 3
 }
+
+variable "ami_type" {
+  description = "Type of Amazon Machine Image (AMI) associated with the EKS Node Group"
+  type        = string
+  default     = "AL2023_ARM_64_STANDARD"
+}
+

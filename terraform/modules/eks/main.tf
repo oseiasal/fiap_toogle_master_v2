@@ -30,8 +30,10 @@ resource "aws_eks_node_group" "main" {
 
   instance_types = var.instance_types
   capacity_type  = var.capacity_type
+  ami_type       = var.ami_type
 
   tags = {
     Project = var.project_name
   }
 }
+

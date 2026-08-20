@@ -13,12 +13,14 @@ inputs = {
   create_iam_roles = true
   k8s_version      = "1.31"
 
-  # ⚙️ Capacidade & Tipos de Instância (Dev - Mais econômico)
-  eks_instance_types    = ["t4g.small"] # Alternativas: ["t4g.micro"], ["t4g.medium"], ["t4g.large"]
-  eks_desired_size      = 2            # Quantidade de worker nodes ativos
+  # ⚙️ Capacidade & Tipos de Instância (Dev - Mais econômico ARM Graviton)
+  eks_instance_types    = ["t4g.small"]
+  eks_ami_type          = "AL2023_ARM_64_STANDARD"
+  eks_desired_size      = 2
   eks_min_size          = 1
   eks_max_size          = 3
-  rds_instance_class    = "db.t4g.small" # Alternativas: "db.t4g.micro", "db.t4g.medium"
-  rds_allocated_storage = 20            # Armazenamento em GB
+  rds_instance_class    = "db.t4g.small"
+  rds_allocated_storage = 20
   redis_node_type       = "cache.t4g.small"
 }
+
