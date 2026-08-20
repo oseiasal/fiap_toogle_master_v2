@@ -64,8 +64,8 @@ services:
 
   auth-service:
     build:
-      context: .
-      dockerfile: docker/Dockerfile.auth
+      context: ./services/auth-service
+      dockerfile: Dockerfile.auth
     image: auth-service
     restart: always
     ports:
@@ -79,8 +79,8 @@ services:
 
   flag-service:
     build:
-      context: .
-      dockerfile: docker/Dockerfile.flag
+      context: ./services/flag-service
+      dockerfile: Dockerfile.flag
     image: flag-service
     restart: always
     ports:
@@ -95,8 +95,8 @@ services:
 
   targeting-service:
     build:
-      context: .
-      dockerfile: docker/Dockerfile.targeting
+      context: ./services/targeting-service
+      dockerfile: Dockerfile.targeting
     image: targeting-service
     restart: always
     ports:
@@ -111,8 +111,8 @@ services:
 
   evaluation-service:
     build:
-      context: .
-      dockerfile: docker/Dockerfile.evaluation
+      context: ./services/evaluation-service
+      dockerfile: Dockerfile.evaluation
     image: evaluation-service
     restart: always
     ports:
@@ -136,8 +136,8 @@ services:
 
   analytics-service:
     build:
-      context: .
-      dockerfile: docker/Dockerfile.analytics
+      context: ./services/analytics-service
+      dockerfile: Dockerfile.analytics
     image: analytics-service
     restart: always
     ports:

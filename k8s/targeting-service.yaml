@@ -7,7 +7,6 @@ data:
   PORT: "8003"
   AUTH_SERVICE_URL: "http://auth-service.toogle-master.svc.cluster.local:8001"
 
----
 
 ---
 apiVersion: v1
