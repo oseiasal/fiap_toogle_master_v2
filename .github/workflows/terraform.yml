@@ -1,0 +1,99 @@
+name: 🏗️ Terraform & Terragrunt IaC Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'terraform/**'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'terraform/**'
+  workflow_dispatch:
+    inputs:
+      stack:
+        description: 'Stack do Terragrunt a executar'
+        required: true
+        type: choice
+        options:
+          - 'dev'
+          - 'shared/ecr'
+          - 'shared/secrets_manager'
+          - 'all'
+        default: 'dev'
+      action:
+        description: 'Ação do Terragrunt (plan, apply, destroy, validate)'
+        required: true
+        type: choice
+        options:
+          - 'plan'
+          - 'apply'
+          - 'destroy'
+          - 'validate'
+        default: 'plan'
+      auto_approve:
+        description: 'Auto-aprovação para Apply ou Destroy'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: terraform-pipeline-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # 1. Stack Shared ECR (Persistente)
+  ecr-stack:
+    name: 📦 ECR Stack (${{ inputs.action || 'plan' }})
+    if: inputs.stack == 'shared/ecr' || inputs.stack == 'all' || github.event_name == 'pull_request' || github.event_name == 'push'
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    uses: oseiasal/.github/.github/workflows/reusable-terragrunt.yml@main
+    with:
+      working_directory: 'terraform/environments/shared/ecr'
+      terragrunt_action: ${{ inputs.action || 'plan' }}
+      aws_region: 'us-east-1'
+      auto_approve: ${{ inputs.auto_approve || false }}
+    secrets:
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+
+  # 2. Stack Shared Secrets Manager (Persistente)
+  secrets-stack:
+    name: 🔐 Secrets Manager Stack (${{ inputs.action || 'plan' }})
+    if: inputs.stack == 'shared/secrets_manager' || inputs.stack == 'all' || github.event_name == 'pull_request' || github.event_name == 'push'
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    uses: oseiasal/.github/.github/workflows/reusable-terragrunt.yml@main
+    with:
+      working_directory: 'terraform/environments/shared/secrets_manager'
+      terragrunt_action: ${{ inputs.action || 'plan' }}
+      aws_region: 'us-east-1'
+      auto_approve: ${{ inputs.auto_approve || false }}
+    secrets:
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+
+  # 3. Stack Dev (Efêmera: VPC, EKS, RDS, Redis, SQS, DynamoDB)
+  dev-stack:
+    name: 🔄 Dev Stack (${{ inputs.action || 'plan' }})
+    needs: [ ecr-stack, secrets-stack ]
+    if: always() && (inputs.stack == 'dev' || inputs.stack == 'all' || github.event_name == 'pull_request' || github.event_name == 'push') && (needs.ecr-stack.result == 'success' || needs.ecr-stack.result == 'skipped') && (needs.secrets-stack.result == 'success' || needs.secrets-stack.result == 'skipped')
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    uses: oseiasal/.github/.github/workflows/reusable-terragrunt.yml@main
+    with:
+      working_directory: 'terraform/environments/dev'
+      terragrunt_action: ${{ inputs.action || 'plan' }}
+      aws_region: 'us-east-1'
+      auto_approve: ${{ inputs.auto_approve || false }}
+    secrets:
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}

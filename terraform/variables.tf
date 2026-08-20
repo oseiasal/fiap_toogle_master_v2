@@ -83,3 +83,24 @@ variable "redis_node_type" {
   type        = string
   default     = "cache.t3.medium"
 }
+
+variable "environment" {
+  description = "Environment name (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+}
+
+variable "master_key" {
+  description = "Master API Key for Auth Service"
+  type        = string
+  default     = "sua_chave_mestra_aqui"
+  sensitive   = true
+}
+
+variable "service_api_key" {
+  description = "Internal service API key for microservice communication"
+  type        = string
+  default     = "tm_key_f54b81bc161a5b84c277ed954384ae950c87adb8c795892db4abfaef75aaacab"
+  sensitive   = true
+}
+

@@ -66,3 +66,6 @@ module "sqs" {
   project_name = var.project_name
   queue_name   = "toogle-events"
 }
+
+
+

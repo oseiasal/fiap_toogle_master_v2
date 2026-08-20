@@ -1,0 +1,4 @@
+# Ignorar arquivos .env de credenciais locais
+*.env
+.env*
+!*.env.example
