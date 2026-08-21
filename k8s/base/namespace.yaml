@@ -2,3 +2,11 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: toogle-master
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: toogle-app-sa
+  namespace: toogle-master
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::665303623973:role/tooglemaster-dev-eso-secrets-role
