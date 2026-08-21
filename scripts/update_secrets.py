@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Script de Automação do AWS Secrets Manager - ToogleMaster
+Script de Automacao do AWS Secrets Manager - ToogleMaster
 Descobre dinamicamente os endpoints do RDS, senhas geradas pela AWS,
-Redis, SQS e atualiza os 5 segredos no Secrets Manager com URL-Encoding automático.
+Redis, SQS e atualiza os 5 segredos no Secrets Manager com URL-Encoding automatico.
 """
 
 import subprocess
@@ -16,32 +16,32 @@ ENV = "dev"
 PREFIX = f"/tooglemaster/{ENV}"
 
 def run_cmd(cmd):
-    """Executa um comando e retorna a saída em texto"""
+    """Executa um comando e retorna a saida em texto"""
     res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if res.returncode != 0:
-        print(f"❌ Erro ao executar comando: {' '.join(cmd)}")
+        print(f"[ERRO] Erro ao executar comando: {' '.join(cmd)}")
         print(res.stderr)
         return None
     return res.stdout.strip()
 
 def get_json(cmd):
-    """Executa um comando e converte a saída para JSON"""
+    """Executa um comando e converte a saida para JSON"""
     out = run_cmd(cmd)
     if not out:
         return None
     try:
         return json.loads(out)
     except Exception as e:
-        print(f"❌ Erro ao decodificar JSON: {e}")
+        print(f"[ERRO] Erro ao decodificar JSON: {e}")
         return None
 
 def main():
     print("=" * 60)
-    print(" 🔐 TOOGLEMASTER - ATUALIZADOR DO AWS SECRETS MANAGER")
+    print(" TOOGLEMASTER - ATUALIZADOR DO AWS SECRETS MANAGER")
     print("=" * 60)
 
-    # 1. Obter detalhes das instâncias RDS (Endpoints e ARNs de Secrets)
-    print("\n🔍 [1/4] Buscando instâncias RDS na AWS...")
+    # 1. Obter detalhes das instancias RDS (Endpoints e ARNs de Secrets)
+    print("\n[1/4] Buscando instancias RDS na AWS...")
     rds_data = get_json([
         "aws", "rds", "describe-db-instances",
         "--region", REGION,
@@ -49,7 +49,7 @@ def main():
     ])
 
     if not rds_data or "DBInstances" not in rds_data:
-        print("❌ Não foi possível listar instâncias RDS.")
+        print("[ERRO] Nao foi possivel listar instancias RDS.")
         sys.exit(1)
 
     db_map = {}
@@ -61,14 +61,15 @@ def main():
             "endpoint": endpoint,
             "secret_arn": secret_arn
         }
-        print(f"   ✓ Encontrado RDS '{ident}' -> {endpoint}")
+        print(f"   * Encontrado RDS '{ident}' -> {endpoint}")
 
     # 2. Obter senhas do Secrets Manager nativo do RDS e aplicar URL-Encoding
-    print("\n🔑 [2/4] Obtendo senhas mestras do RDS e aplicando URL-Encoding...")
+    print("\n[2/4] Obtendo senhas mestras do RDS e aplicando URL-Encoding...")
     passwords = {}
+    raw_passwords = {}
     for ident, info in db_map.items():
         if not info["secret_arn"]:
-            print(f"⚠️  RDS '{ident}' não tem MasterUserSecret associado.")
+            print(f"[AVISO] RDS '{ident}' nao tem MasterUserSecret associado.")
             continue
 
         sec_data = get_json([
@@ -81,14 +82,15 @@ def main():
 
         if sec_data and "password" in sec_data:
             raw_pwd = sec_data["password"]
+            raw_passwords[ident] = raw_pwd
             enc_pwd = urllib.parse.quote(raw_pwd, safe="")
             passwords[ident] = enc_pwd
-            print(f"   ✓ Senha obtida e codificada para '{ident}'")
+            print(f"   * Senha obtida e codificada para '{ident}'")
         else:
-            print(f"❌ Falha ao obter senha para '{ident}'")
+            print(f"[ERRO] Falha ao obter senha para '{ident}'")
 
     # 3. Obter Endpoints de Redis e Fila SQS
-    print("\n📦 [3/4] Buscando Redis e Fila SQS...")
+    print("\n[3/4] Buscando Redis e Fila SQS...")
     redis_endpoint = run_cmd([
         "aws", "elasticache", "describe-cache-clusters",
         "--cache-cluster-id", "toogle-redis",
@@ -97,7 +99,7 @@ def main():
         "--output", "text",
         "--region", REGION
     ])
-    print(f"   ✓ Redis Endpoint: {redis_endpoint}")
+    print(f"   * Redis Endpoint: {redis_endpoint}")
 
     sqs_url = run_cmd([
         "aws", "sqs", "get-queue-url",
@@ -106,7 +108,7 @@ def main():
         "--output", "text",
         "--region", REGION
     ])
-    print(f"   ✓ SQS Queue URL: {sqs_url}")
+    print(f"   * SQS Queue URL: {sqs_url}")
 
     # Montar Connection Strings
     auth_host = db_map.get("auth-db", {}).get("endpoint")
@@ -124,7 +126,7 @@ def main():
     redis_url = f"redis://{redis_endpoint}:6379"
 
     # 4. Definir os 5 Segredos e Atualizar no Secrets Manager
-    print("\n🚀 [4/4] Atualizando os 5 Segredos no AWS Secrets Manager...")
+    print("\n[4/4] Atualizando os 5 Segredos no AWS Secrets Manager...")
 
     secrets_to_update = {
         f"{PREFIX}/auth": {
@@ -156,13 +158,14 @@ def main():
             "--region", REGION
         ])
         if res:
-            print(f"   ✅ Atualizado com sucesso: {secret_id}")
+            print(f"   [OK] Atualizado com sucesso: {secret_id}")
         else:
-            print(f"   ❌ Falha ao atualizar: {secret_id}")
+            print(f"   [FALHA] Falha ao atualizar: {secret_id}")
 
     print("\n" + "=" * 60)
-    print(" 🎉 TODOS OS SEGREDOS FORAM ATUALIZADOS COM SUCESSO!")
+    print(" TODOS OS SEGREDOS FORAM ATUALIZADOS COM SUCESSO!")
     print("=" * 60)
 
 if __name__ == "__main__":
     main()
+

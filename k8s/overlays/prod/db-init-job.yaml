@@ -12,21 +12,34 @@ spec:
         - name: psql-initializer
           image: postgres:15-alpine
           env:
-            - name: PGSSLMODE
-              value: "require"
+            - name: AUTH_DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: auth-service-secret
+                  key: DATABASE_URL
+            - name: FLAG_DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: flag-service-secret
+                  key: DATABASE_URL
+            - name: TARGETING_DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: targeting-service-secret
+                  key: DATABASE_URL
           command: ["/bin/sh", "-c"]
           args:
             - |
               set -e
               echo "=========================================="
-              echo " 🚀 INICIANDO SEED DOS BANCOS DE DADOS RDS"
+              echo " INICIANDO SEED VIA KUBERNETES SECRETS"
               echo "=========================================="
 
-              # --- 1. AUTH DB ---
+              # 1. AUTH DB
               echo "==> [1/3] Criando e populando auth_db..."
-              export PGPASSWORD='mo#jJ$h2_5HmwF)2uOu8b<J>k1)u'
-              psql -h auth-db.c8n6caw4w53y.us-east-1.rds.amazonaws.com -U dbuser -d postgres -c "CREATE DATABASE auth_db;" || true
-              psql -h auth-db.c8n6caw4w53y.us-east-1.rds.amazonaws.com -U dbuser -d auth_db -c "
+              ADMIN_AUTH_URL=$(echo "$AUTH_DB_URL" | sed 's|/auth_db|/postgres|')
+              psql "$ADMIN_AUTH_URL" -c "CREATE DATABASE auth_db;" || true
+              psql "$AUTH_DB_URL" -c "
                 CREATE TABLE IF NOT EXISTS api_keys (
                   id SERIAL PRIMARY KEY,
                   name VARCHAR(100) NOT NULL,
@@ -43,11 +56,11 @@ spec:
                 ON CONFLICT (key_hash) DO NOTHING;
               "
 
-              # --- 2. FLAG DB (MAIN-DB) ---
+              # 2. FLAG DB
               echo "==> [2/3] Criando e populando flag_db..."
-              export PGPASSWORD='*K7wChw*]3(eWVUm~4#PR8rpfv:i'
-              psql -h main-db.c8n6caw4w53y.us-east-1.rds.amazonaws.com -U dbuser -d postgres -c "CREATE DATABASE flag_db;" || true
-              psql -h main-db.c8n6caw4w53y.us-east-1.rds.amazonaws.com -U dbuser -d flag_db -c "
+              ADMIN_FLAG_URL=$(echo "$FLAG_DB_URL" | sed 's|/flag_db|/postgres|')
+              psql "$ADMIN_FLAG_URL" -c "CREATE DATABASE flag_db;" || true
+              psql "$FLAG_DB_URL" -c "
                 CREATE TABLE IF NOT EXISTS flags (
                   id SERIAL PRIMARY KEY,
                   name VARCHAR(100) UNIQUE NOT NULL,
@@ -58,11 +71,11 @@ spec:
                 );
               "
 
-              # --- 3. TARGETING DB ---
+              # 3. TARGETING DB
               echo "==> [3/3] Criando e populando targeting_db..."
-              export PGPASSWORD='5#VVaf$6i5*oxtJekQS]7<?8Z_Rr'
-              psql -h targeting-db.c8n6caw4w53y.us-east-1.rds.amazonaws.com -U dbuser -d postgres -c "CREATE DATABASE targeting_db;" || true
-              psql -h targeting-db.c8n6caw4w53y.us-east-1.rds.amazonaws.com -U dbuser -d targeting_db -c "
+              ADMIN_TARGETING_URL=$(echo "$TARGETING_DB_URL" | sed 's|/targeting_db|/postgres|')
+              psql "$ADMIN_TARGETING_URL" -c "CREATE DATABASE targeting_db;" || true
+              psql "$TARGETING_DB_URL" -c "
                 CREATE TABLE IF NOT EXISTS targeting_rules (
                   id SERIAL PRIMARY KEY,
                   flag_name VARCHAR(100) UNIQUE NOT NULL,
@@ -74,5 +87,5 @@ spec:
               "
 
               echo "=========================================="
-              echo " ✅ SEED CONCLUÍDO COM SUCESSO EM TODOS OS 3 BANCOS!"
+              echo " SEED CONCLUIDO COM SUCESSO EM TODOS OS BANCOS!"
               echo "=========================================="
