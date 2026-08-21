@@ -35,9 +35,10 @@ remote_state {
   backend = "s3"
   config = {
     bucket         = "tooglemaster-terragrunt-state-${get_aws_account_id()}"
-    key            = "${path_relative_to_include()}/terraform.tfstate"
+    key            = "${replace(path_relative_to_include(), "\\", "/")}/terraform.tfstate"
     region         = local.aws_region
     encrypt        = true
     dynamodb_table = "tooglemaster-terragrunt-locks"
   }
 }
+
