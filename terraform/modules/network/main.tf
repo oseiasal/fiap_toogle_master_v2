@@ -257,10 +257,11 @@ resource "aws_security_group" "rds" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    description     = "PostgreSQL from EKS Worker Nodes SG"
+    description     = "PostgreSQL from VPC and EKS Nodes"
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
+    cidr_blocks     = [var.vpc_cidr]
     security_groups = [aws_security_group.eks_nodes.id]
   }
 
@@ -285,12 +286,14 @@ resource "aws_security_group" "redis" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    description     = "Redis from EKS Worker Nodes SG"
+    description     = "Redis from VPC and EKS Nodes"
     from_port       = 6379
     to_port         = 6379
     protocol        = "tcp"
+    cidr_blocks     = [var.vpc_cidr]
     security_groups = [aws_security_group.eks_nodes.id]
   }
+
 
   egress {
     description = "Allow local outbound"

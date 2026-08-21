@@ -110,4 +110,10 @@ output "region" {
   value       = var.region
 }
 
+output "eso_role_arn" {
+  description = "ARN of the IAM Role for External Secrets Operator IRSA"
+  value       = module.iam.eso_role_arn
+}
+
+
 

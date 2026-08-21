@@ -101,9 +101,20 @@ resource "aws_iam_policy" "pod_app_access" {
           "sqs:GetQueueUrl"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetResourcePolicy",
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret",
+          "secretsmanager:ListSecretVersionIds"
+        ]
+        Resource = "*"
       }
     ]
   })
+
 
   tags = {
     Project = var.project_name
@@ -121,3 +132,40 @@ data "aws_iam_role" "lab_role" {
   count = var.create_iam_roles ? 0 : 1
   name  = var.lab_role_name
 }
+
+# Dedicated IRSA Role for External Secrets Operator
+resource "aws_iam_role" "eso_secrets" {
+  count = var.create_iam_roles ? 1 : 0
+  name  = "${lower(var.project_name)}-eso-secrets-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = var.oidc_provider_arn
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringLike = {
+            "${replace(var.oidc_provider_url, "https://", "")}:sub" = "system:serviceaccount:*:external-secrets*"
+          }
+        }
+
+      }
+    ]
+  })
+
+  tags = {
+    Project = var.project_name
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "eso_secrets_attach" {
+  count      = var.create_iam_roles ? 1 : 0
+  role       = aws_iam_role.eso_secrets[0].name
+  policy_arn = aws_iam_policy.pod_app_access[0].arn
+}
+
+

@@ -65,8 +65,9 @@ variable "eks_max_size" {
 variable "eks_ami_type" {
   description = "AMI Type for EKS Worker Nodes (e.g., AL2023_ARM_64_STANDARD, AL2023_x86_64_STANDARD)"
   type        = string
-  default     = "AL2023_ARM_64_STANDARD"
+  default     = "AL2023_x86_64_STANDARD"
 }
+
 
 
 variable "rds_instance_class" {

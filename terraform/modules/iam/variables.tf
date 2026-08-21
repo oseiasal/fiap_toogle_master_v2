@@ -14,3 +14,15 @@ variable "lab_role_name" {
   type        = string
   default     = "LabRole"
 }
+
+variable "oidc_provider_arn" {
+  description = "ARN of the EKS OIDC Provider"
+  type        = string
+  default     = ""
+}
+
+variable "oidc_provider_url" {
+  description = "URL of the EKS OIDC Provider"
+  type        = string
+  default     = ""
+}

@@ -13,9 +13,9 @@ inputs = {
   create_iam_roles = true
   k8s_version      = "1.31"
 
-  # ⚙️ Capacidade & Tipos de Instância (Dev - Mais econômico ARM Graviton)
-  eks_instance_types    = ["t4g.small"]
-  eks_ami_type          = "AL2023_ARM_64_STANDARD"
+  # ⚙️ Capacidade & Tipos de Instância (Dev - Arquitetura x86_64 Intel/AMD)
+  eks_instance_types    = ["t3.small"]
+  eks_ami_type          = "AL2023_x86_64_STANDARD"
   eks_desired_size      = 2
   eks_min_size          = 1
   eks_max_size          = 3
@@ -23,4 +23,5 @@ inputs = {
   rds_allocated_storage = 20
   redis_node_type       = "cache.t4g.small"
 }
+
 

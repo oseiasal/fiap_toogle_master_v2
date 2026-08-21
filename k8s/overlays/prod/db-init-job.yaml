@@ -1,0 +1,78 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-init-seed-job
+  namespace: toogle-master
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: psql-initializer
+          image: postgres:15-alpine
+          env:
+            - name: PGSSLMODE
+              value: "require"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              echo "=========================================="
+              echo " 🚀 INICIANDO SEED DOS BANCOS DE DADOS RDS"
+              echo "=========================================="
+
+              # --- 1. AUTH DB ---
+              echo "==> [1/3] Criando e populando auth_db..."
+              export PGPASSWORD='mo#jJ$h2_5HmwF)2uOu8b<J>k1)u'
+              psql -h auth-db.c8n6caw4w53y.us-east-1.rds.amazonaws.com -U dbuser -d postgres -c "CREATE DATABASE auth_db;" || true
+              psql -h auth-db.c8n6caw4w53y.us-east-1.rds.amazonaws.com -U dbuser -d auth_db -c "
+                CREATE TABLE IF NOT EXISTS api_keys (
+                  id SERIAL PRIMARY KEY,
+                  name VARCHAR(100) NOT NULL,
+                  key_hash VARCHAR(64) NOT NULL UNIQUE,
+                  is_active BOOLEAN DEFAULT true,
+                  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                );
+                INSERT INTO api_keys (name, key_hash, is_active)
+                VALUES (
+                  'Evaluation Service Default Key',
+                  '8cfe60ccf86afc21b71ebb7c1550c3fcfa0e796379c4da95007b9aa41ea2b86c',
+                  true
+                )
+                ON CONFLICT (key_hash) DO NOTHING;
+              "
+
+              # --- 2. FLAG DB (MAIN-DB) ---
+              echo "==> [2/3] Criando e populando flag_db..."
+              export PGPASSWORD='*K7wChw*]3(eWVUm~4#PR8rpfv:i'
+              psql -h main-db.c8n6caw4w53y.us-east-1.rds.amazonaws.com -U dbuser -d postgres -c "CREATE DATABASE flag_db;" || true
+              psql -h main-db.c8n6caw4w53y.us-east-1.rds.amazonaws.com -U dbuser -d flag_db -c "
+                CREATE TABLE IF NOT EXISTS flags (
+                  id SERIAL PRIMARY KEY,
+                  name VARCHAR(100) UNIQUE NOT NULL,
+                  description TEXT,
+                  is_enabled BOOLEAN NOT NULL DEFAULT false,
+                  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                );
+              "
+
+              # --- 3. TARGETING DB ---
+              echo "==> [3/3] Criando e populando targeting_db..."
+              export PGPASSWORD='5#VVaf$6i5*oxtJekQS]7<?8Z_Rr'
+              psql -h targeting-db.c8n6caw4w53y.us-east-1.rds.amazonaws.com -U dbuser -d postgres -c "CREATE DATABASE targeting_db;" || true
+              psql -h targeting-db.c8n6caw4w53y.us-east-1.rds.amazonaws.com -U dbuser -d targeting_db -c "
+                CREATE TABLE IF NOT EXISTS targeting_rules (
+                  id SERIAL PRIMARY KEY,
+                  flag_name VARCHAR(100) UNIQUE NOT NULL,
+                  is_enabled BOOLEAN NOT NULL DEFAULT true,
+                  rules JSONB NOT NULL,
+                  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                );
+              "
+
+              echo "=========================================="
+              echo " ✅ SEED CONCLUÍDO COM SUCESSO EM TODOS OS 3 BANCOS!"
+              echo "=========================================="

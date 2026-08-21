@@ -22,3 +22,13 @@ output "node_group_id" {
   description = "EKS Node Group ID"
   value       = aws_eks_node_group.main.id
 }
+
+output "oidc_provider_arn" {
+  description = "ARN of the IAM OIDC Provider for EKS IRSA"
+  value       = aws_iam_openid_connect_provider.eks.arn
+}
+
+output "oidc_provider_url" {
+  description = "URL of the IAM OIDC Provider"
+  value       = aws_eks_cluster.main.identity[0].oidc[0].issuer
+}

@@ -1,10 +1,13 @@
 module "iam" {
   source = "./modules/iam"
 
-  project_name     = var.project_name
-  create_iam_roles = var.create_iam_roles
-  lab_role_name    = var.lab_role_name
+  project_name      = var.project_name
+  create_iam_roles  = var.create_iam_roles
+  lab_role_name     = var.lab_role_name
+  oidc_provider_arn = module.eks.oidc_provider_arn
+  oidc_provider_url = module.eks.oidc_provider_url
 }
+
 
 module "network" {
   source = "./modules/network"

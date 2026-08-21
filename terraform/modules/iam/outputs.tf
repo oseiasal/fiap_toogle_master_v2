@@ -17,3 +17,9 @@ output "node_role_name" {
   description = "Name of the IAM Role for EKS Node Group"
   value       = var.create_iam_roles ? aws_iam_role.eks_nodes[0].name : var.lab_role_name
 }
+
+output "eso_role_arn" {
+  description = "ARN of the IAM Role for External Secrets Operator IRSA"
+  value       = length(aws_iam_role.eso_secrets) > 0 ? aws_iam_role.eso_secrets[0].arn : ""
+}
+
