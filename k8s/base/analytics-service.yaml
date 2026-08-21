@@ -41,9 +41,10 @@ spec:
       labels:
         app: analytics-service
     spec:
-      serviceAccountName: toogle-app-sa
+      serviceAccountName: external-secrets-sa
       containers:
       - name: analytics-service
+
 
         image: 665303623973.dkr.ecr.us-east-1.amazonaws.com/analytics-service:latest
         ports:

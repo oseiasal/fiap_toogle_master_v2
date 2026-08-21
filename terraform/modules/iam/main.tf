@@ -149,9 +149,10 @@ resource "aws_iam_role" "eso_secrets" {
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
           StringLike = {
-            "${replace(var.oidc_provider_url, "https://", "")}:sub" = "system:serviceaccount:*:external-secrets*"
+            "${replace(var.oidc_provider_url, "https://", "")}:sub" = "system:serviceaccount:*:*"
           }
         }
+
 
       }
     ]

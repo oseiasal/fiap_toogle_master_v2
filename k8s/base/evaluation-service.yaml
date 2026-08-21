@@ -41,9 +41,10 @@ spec:
       labels:
         app: evaluation-service
     spec:
-      serviceAccountName: toogle-app-sa
+      serviceAccountName: external-secrets-sa
       containers:
       - name: evaluation-service
+
 
         image: 665303623973.dkr.ecr.us-east-1.amazonaws.com/evaluation-service:latest
         ports:
