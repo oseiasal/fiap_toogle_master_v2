@@ -6,7 +6,7 @@ import boto3
 from locust import User, task, between, events
 
 # Obtém a URL da fila SQS e a Região AWS do ambiente (ou usa valores padrão)
-SQS_URL = os.getenv("AWS_SQS_URL", "https://sqs.us-east-1.amazonaws.com/112719111297/toogle-events")
+SQS_URL = os.getenv("AWS_SQS_URL", "https://sqs.us-east-1.amazonaws.com/665303623973/toogle-events")
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 
 class SqsUser(User):

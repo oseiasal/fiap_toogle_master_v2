@@ -24,7 +24,7 @@ MAIN_DB_ENDPOINT=$(terraform output -raw rds_main_endpoint | cut -d: -f1)
 TARGETING_DB_ENDPOINT=$(terraform output -raw rds_targeting_endpoint | cut -d: -f1)
 REDIS_URL="redis://$(terraform output -raw redis_endpoint):6379"
 SQS_URL=$(terraform output -raw sqs_url)
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text 2>/dev/null || echo "112719111297")
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text 2>/dev/null || echo "665303623973")
 DB_USER="dbuser"
 DB_PASS=$(terraform output -raw db_password 2>/dev/null || echo "SenhaTeste123")
 
