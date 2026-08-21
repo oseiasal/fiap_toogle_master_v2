@@ -13,15 +13,16 @@ inputs = {
   create_iam_roles = true
   k8s_version      = "1.31"
 
-  # ⚙️ Capacidade & Tipos de Instância (Dev - Arquitetura x86_64 Intel/AMD)
-  eks_instance_types    = ["t3.small"]
+  # ⚙️ Capacidade & Tipos de Instância (Dev - Arquitetura x86_64 Intel/AMD t3.medium)
+  eks_instance_types    = ["t3.medium"]
   eks_ami_type          = "AL2023_x86_64_STANDARD"
   eks_desired_size      = 2
-  eks_min_size          = 1
-  eks_max_size          = 3
+  eks_min_size          = 2
+  eks_max_size          = 4
   rds_instance_class    = "db.t4g.small"
   rds_allocated_storage = 20
   redis_node_type       = "cache.t4g.small"
 }
+
 
 
