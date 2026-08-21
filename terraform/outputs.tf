@@ -84,19 +84,24 @@ output "eks_cluster_endpoint" {
   value       = module.eks.cluster_endpoint
 }
 
-output "eks_cluster_name" {
-  description = "Name of the EKS cluster"
-  value       = module.eks.cluster_name
+output "auth_db_secret_arn" {
+  description = "Secrets Manager ARN for Auth DB master credentials"
+  value       = module.rds.auth_master_user_secret_arn
 }
 
-output "db_password" {
-  description = "Database master password"
-  value       = var.db_password
-  sensitive   = true
+output "flag_db_secret_arn" {
+  description = "Secrets Manager ARN for Flag DB master credentials"
+  value       = module.rds.flag_master_user_secret_arn
+}
+
+output "targeting_db_secret_arn" {
+  description = "Secrets Manager ARN for Targeting DB master credentials"
+  value       = module.rds.targeting_master_user_secret_arn
 }
 
 output "region" {
   description = "AWS region"
   value       = var.region
 }
+
 

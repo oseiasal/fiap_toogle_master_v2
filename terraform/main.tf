@@ -36,7 +36,6 @@ module "rds" {
   source = "./modules/rds"
 
   project_name         = var.project_name
-  db_password          = var.db_password
   db_subnet_group_name = module.network.db_subnet_group_name
   security_group_ids   = [module.network.rds_security_group_id]
   publicly_accessible  = false
@@ -44,6 +43,7 @@ module "rds" {
   allocated_storage    = var.rds_allocated_storage
   multi_az             = var.rds_multi_az
 }
+
 
 module "redis" {
   source = "./modules/redis"

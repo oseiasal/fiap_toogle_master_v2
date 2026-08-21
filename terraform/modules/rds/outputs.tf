@@ -32,3 +32,19 @@ output "targeting_db_address" {
   description = "Hostname of the Targeting DB instance"
   value       = aws_db_instance.targeting_db.address
 }
+
+output "auth_master_user_secret_arn" {
+  description = "ARN of the secret generated in Secrets Manager for Auth DB"
+  value       = aws_db_instance.auth_db.master_user_secret[0].secret_arn
+}
+
+output "flag_master_user_secret_arn" {
+  description = "ARN of the secret generated in Secrets Manager for Flag DB"
+  value       = aws_db_instance.main_db.master_user_secret[0].secret_arn
+}
+
+output "targeting_master_user_secret_arn" {
+  description = "ARN of the secret generated in Secrets Manager for Targeting DB"
+  value       = aws_db_instance.targeting_db.master_user_secret[0].secret_arn
+}
+
