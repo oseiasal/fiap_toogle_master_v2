@@ -17,11 +17,13 @@ echo ""
 echo "🔐 [1/3] Populando os 5 Segredos no AWS Secrets Manager..."
 python3 "$SCRIPT_DIR/update_secrets.py"
 
-# 2. INSTALAR O ARGOCD NO CLUSTER EKS
+# 2. INSTALAR O ARGOCD NO CLUSTER EKS VIA HELM
 echo ""
-echo "🌳 [2/3] Instalando e configurando o ArgoCD no Cluster EKS..."
-kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+echo "🌳 [2/3] Instalando e configurando o ArgoCD no Cluster EKS via Helm..."
+helm repo add argo https://argoproj.github.io/argo-helm
+helm repo update
+helm upgrade --install argocd argo/argo-cd --namespace argocd --create-namespace
+
 
 echo "   -> Aguardando os serviços do ArgoCD iniciarem..."
 kubectl rollout status deployment/argocd-server -n argocd --timeout=180s

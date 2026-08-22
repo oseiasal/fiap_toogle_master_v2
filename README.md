@@ -50,9 +50,11 @@ Ou executar manualmente passo a passo:
 # 1. Popular os segredos com as credenciais da AWS
 python scripts/update_secrets.py
 
-# 2. Instalar o ArgoCD
-kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+# 2. Instalar o ArgoCD via Helm
+helm repo add argo https://argoproj.github.io/argo-helm
+helm repo update
+helm upgrade --install argocd argo/argo-cd --namespace argocd --create-namespace
+
 
 # 3. Conectar a aplicação GitOps
 kubectl apply -f k8s/argocd/argocd-toogletec.yaml

@@ -32,16 +32,18 @@ if ($LASTEXITCODE -ne 0) {
 # -----------------------------------------------------------------------------
 Write-Host "`n🌳 [2/3] Instalando e configurando o ArgoCD no Cluster EKS..." -ForegroundColor Yellow
 
-# Cria o namespace argocd se não existir
-kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+# Instala o ArgoCD via Helm
+Write-Host "   -> Adicionando repositório Helm do ArgoCD..." -ForegroundColor Gray
+helm repo add argo https://argoproj.github.io/argo-helm
+helm repo update
 
-# Instala os manifestos oficiais do ArgoCD
-Write-Host "   -> Baixando e aplicando manifestos do ArgoCD..." -ForegroundColor Gray
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+Write-Host "   -> Instalando ArgoCD via Helm Chart..." -ForegroundColor Gray
+helm upgrade --install argocd argo/argo-cd --namespace argocd --create-namespace
 
 # Aguarda o ArgoCD Server estar pronto
 Write-Host "   -> Aguardando os serviços do ArgoCD iniciarem..." -ForegroundColor Gray
 kubectl rollout status deployment/argocd-server -n argocd --timeout=180s
+
 
 # Aplica a Application GitOps do ToogleMaster
 Write-Host "   -> Conectando o repositório Git ao ArgoCD..." -ForegroundColor Gray
