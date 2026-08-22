@@ -45,9 +45,10 @@ Write-Host "   -> Aguardando os serviços do ArgoCD iniciarem..." -ForegroundCol
 kubectl rollout status deployment/argocd-server -n argocd --timeout=180s
 
 
-# Aplica a Application GitOps do ToogleMaster
-Write-Host "   -> Conectando o repositório Git ao ArgoCD..." -ForegroundColor Gray
-kubectl apply -f "$ProjectRoot\k8s\argocd\argocd-toogletec.yaml"
+# Aplica a Application Mãe (App of Apps) do ToogleMaster
+Write-Host "   -> Conectando a Root Application (App of Apps) ao ArgoCD..." -ForegroundColor Gray
+kubectl apply -f "$ProjectRoot\k8s\argocd\root-app.yaml"
+
 
 # -----------------------------------------------------------------------------
 # 3. EXECUTAR O SEED DOS BANCOS DE DADOS RDS

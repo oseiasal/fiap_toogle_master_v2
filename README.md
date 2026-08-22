@@ -56,8 +56,9 @@ helm repo update
 helm upgrade --install argocd argo/argo-cd --namespace argocd --create-namespace
 
 
-# 3. Conectar a aplicação GitOps
-kubectl apply -f k8s/argocd/argocd-toogletec.yaml
+# 3. Conectar a Root Application (App of Apps)
+kubectl apply -f k8s/argocd/root-app.yaml
+
 
 # 4. Executar o seed inicial dos bancos RDS
 kubectl apply -f k8s/overlays/prod/db-init-job.yaml

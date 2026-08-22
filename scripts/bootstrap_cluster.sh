@@ -28,8 +28,9 @@ helm upgrade --install argocd argo/argo-cd --namespace argocd --create-namespace
 echo "   -> Aguardando os serviços do ArgoCD iniciarem..."
 kubectl rollout status deployment/argocd-server -n argocd --timeout=180s
 
-echo "   -> Conectando o repositório Git ao ArgoCD..."
-kubectl apply -f "$PROJECT_ROOT/k8s/argocd/argocd-toogletec.yaml"
+echo "   -> Conectando a Root Application (App of Apps) ao ArgoCD..."
+kubectl apply -f "$PROJECT_ROOT/k8s/argocd/root-app.yaml"
+
 
 # 3. EXECUTAR O SEED DOS BANCOS DE DADOS RDS
 echo ""
