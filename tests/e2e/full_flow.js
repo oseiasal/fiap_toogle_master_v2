@@ -7,14 +7,18 @@ const axios = require('axios');
  * Pode ser configurado via variáveis de ambiente para testar Docker, K8s, HML ou PROD.
  */
 
+// URL Base do Load Balancer do Kubernetes / AWS
+const DEFAULT_LB_URL = 'http://a2f6c8777f944473497241b2fa650aa1-f406dd71c1e49c47.elb.us-east-1.amazonaws.com';
+const BASE_URL = (process.env.BASE_URL || process.env.LOAD_BALANCER_URL || DEFAULT_LB_URL).replace(/\/$/, '');
+
 // Configurações de ambiente (podem ser sobrescritas por variáveis de ambiente)
 const config = {
-    auth_host: process.env.AUTH_HOST || 'http://localhost:8001',
-    flag_host: process.env.FLAG_HOST || 'http://localhost:8002',
-    targeting_host: process.env.TARGETING_HOST || 'http://localhost:8003',
-    evaluation_host: process.env.EVALUATION_HOST || 'http://localhost:8004',
-    analytics_host: process.env.ANALYTICS_HOST || 'http://localhost:8005',
-    master_key: process.env.MASTER_KEY || 'sua_chave_mestra_aqui'
+    auth_host: process.env.AUTH_HOST || `${BASE_URL}/auth`,
+    flag_host: process.env.FLAG_HOST || `${BASE_URL}/flags`,
+    targeting_host: process.env.TARGETING_HOST || `${BASE_URL}/rules`,
+    evaluation_host: process.env.EVALUATION_HOST || `${BASE_URL}/evaluate`,
+    analytics_host: process.env.ANALYTICS_HOST || `${BASE_URL}/analytics`,
+    master_key: process.env.MASTER_KEY || 'ToogleMasterSecret2026!'
 };
 
 const testState = {
@@ -24,6 +28,7 @@ const testState = {
 
 async function runTests() {
     console.log('🚀 Iniciando Testes E2E - Toogle Master');
+    console.log(`📍 Base URL (Load Balancer): ${BASE_URL}`);
     console.log(`📍 Alvos: Auth(${config.auth_host}), Flag(${config.flag_host}), Evaluation(${config.evaluation_host})\n`);
 
     try {
@@ -89,7 +94,7 @@ async function runTests() {
         }
 
         console.log('\n====================================================');
-        console.log('🎉 TESTES E2E CONCLUÍDOS COM SUCESSO!');
+        console.log('🎉 TESTES E2E CONCLUÍDOS COM SUCESSO NO LOAD BALANCER!');
         console.log('====================================================');
 
     } catch (error) {

@@ -27,7 +27,7 @@ cd ../../dev
 terragrunt apply --auto-approve
 
 # 3. Atualizar o kubeconfig local para autenticar no cluster EKS
-aws eks update-kubeconfig --region us-east-1 --name toogle-cluster
+aws eks update-kubeconfig --name toogle-cluster --region us-east-1
 
 # 4. Subir os pods no namespace
 kubectl apply -k ./k8s/overlays/prod/ --server-side
