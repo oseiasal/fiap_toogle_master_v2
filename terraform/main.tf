@@ -62,7 +62,7 @@ module "dynamodb" {
   source = "./modules/dynamodb"
 
   project_name = var.project_name
-  table_name   = "analytics_events"
+  table_name   = "ToggleMasterAnalytics"
 }
 
 module "sqs" {

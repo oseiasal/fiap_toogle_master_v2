@@ -57,7 +57,7 @@ services:
     command: >
       "sleep 10 &&
       aws sqs create-queue --queue-name toogle-events --endpoint-url http://localstack:4566 &&
-      aws dynamodb create-table --table-name analytics_events --attribute-definitions AttributeName=event_id,AttributeType=S --key-schema AttributeName=event_id,KeyType=HASH --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 --endpoint-url http://dynamodb-local:8000 &&
+      aws dynamodb create-table --table-name ToggleMasterAnalytics --attribute-definitions AttributeName=event_id,AttributeType=S --key-schema AttributeName=event_id,KeyType=HASH --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 --endpoint-url http://dynamodb-local:8000 &&
       echo 'AWS resources initialized'"
 
   # --- Microservices ---
@@ -148,7 +148,7 @@ services:
       - AWS_SQS_URL=http://localstack:4566/000000000000/toogle-events
       - AWS_ENDPOINT_URL=http://localstack:4566
       - AWS_DYNAMODB_ENDPOINT_URL=http://dynamodb-local:8000
-      - AWS_DYNAMODB_TABLE=analytics_events
+      - AWS_DYNAMODB_TABLE=ToggleMasterAnalytics
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
     depends_on:

@@ -21,7 +21,7 @@ terraform/
 │   ├── eks/                                   # EKS Cluster (v1.31) & Managed Node Group
 │   ├── rds/                                   # PostgreSQL RDS instances (auth-db, main-db, targeting-db)
 │   ├── redis/                                 # ElastiCache Redis Cluster
-│   ├── dynamodb/                              # DynamoDB analytics_events Table (On-Demand)
+│   ├── dynamodb/                              # DynamoDB ToggleMasterAnalytics Table (On-Demand)
 │   ├── sqs/                                   # SQS toogle-events Queue
 │   └── ecr/                                   # 5 ECR Repositories with Image Scan on push
 └── environments/                              # Multi-Stack Environments

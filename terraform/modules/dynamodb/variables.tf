@@ -6,7 +6,7 @@ variable "project_name" {
 variable "table_name" {
   description = "DynamoDB table name"
   type        = string
-  default     = "analytics_events"
+  default     = "ToggleMasterAnalytics"
 }
 
 variable "billing_mode" {
