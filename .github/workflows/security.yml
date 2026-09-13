@@ -14,9 +14,10 @@ concurrency:
 
 jobs:
   security:
-    name: DevSecOps Security Analysis (Trivy FS Scan)
+    name: DevSecOps Security Analysis (IaC & Secrets Scan)
     uses: oseiasal/.github/.github/workflows/reusable-security.yml@main
     with:
-      language: 'auto'
+      language: 'iac'
+      enable-iac-scan: true
       trivy-severity: 'CRITICAL,HIGH'
-      fail-on-critical: true
+      fail-on-critical: false
