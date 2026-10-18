@@ -9,11 +9,29 @@ import subprocess
 import json
 import urllib.parse
 import sys
+import os
+from pathlib import Path
 
 REGION = "us-east-1"
 ACCOUNT_ID = "665303623973"
 ENV = "dev"
 PREFIX = f"/tooglemaster/{ENV}"
+
+
+def load_local_env_file(filepath):
+    """Carrega pares CHAVE=VALOR de um arquivo .env local caso exista."""
+    env_vars = {}
+    path = Path(filepath)
+    if not path.exists():
+        return env_vars
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        env_vars[k.strip()] = v.strip().strip('"').strip("'")
+    return env_vars
+
 
 def run_cmd(cmd):
     """Executa um comando e retorna a saida em texto"""
@@ -125,8 +143,15 @@ def main():
 
     redis_url = f"redis://{redis_endpoint}:6379"
 
-    # 4. Definir os 5 Segredos e Atualizar no Secrets Manager
-    print("\n[4/4] Atualizando os 5 Segredos no AWS Secrets Manager...")
+    # Carregar chaves de observabilidade (variaveis de ambiente ou .env.observability local)
+    obs_env = load_local_env_file(Path(__file__).resolve().parent.parent / ".env.observability")
+    new_relic_key = os.environ.get("NEW_RELIC_LICENSE_KEY") or obs_env.get("NEW_RELIC_LICENSE_KEY", "REPLACE_WITH_NEW_RELIC_INGEST_LICENSE_KEY")
+    new_relic_otlp_endpoint = os.environ.get("NEW_RELIC_OTLP_ENDPOINT") or obs_env.get("NEW_RELIC_OTLP_ENDPOINT", "https://otlp.nr-data.net:4318")
+    pagerduty_key = os.environ.get("PAGERDUTY_INTEGRATION_KEY") or obs_env.get("PAGERDUTY_INTEGRATION_KEY", "REPLACE_WITH_PAGERDUTY_ROUTING_KEY")
+    discord_webhook = os.environ.get("DISCORD_WEBHOOK_URL") or obs_env.get("DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/REPLACE_ME")
+
+    # 4. Definir os 6 Segredos (5 Microsservicos + Observabilidade Fase 4) e Atualizar no Secrets Manager
+    print("\n[4/4] Atualizando os 6 Segredos no AWS Secrets Manager...")
 
     secrets_to_update = {
         f"{PREFIX}/auth": {
@@ -146,6 +171,12 @@ def main():
         },
         f"{PREFIX}/analytics": {
             "AWS_SQS_URL": sqs_url
+        },
+        f"{PREFIX}/observability": {
+            "NEW_RELIC_LICENSE_KEY": new_relic_key,
+            "NEW_RELIC_OTLP_ENDPOINT": new_relic_otlp_endpoint,
+            "PAGERDUTY_INTEGRATION_KEY": pagerduty_key,
+            "DISCORD_WEBHOOK_URL": discord_webhook
         }
     }
 

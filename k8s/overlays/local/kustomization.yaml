@@ -27,3 +27,7 @@ secretGenerator:
     envs:
       - evaluation.env
       - .env.aws
+  - name: observability-secret
+    namespace: toogle-master
+    envs:
+      - observability.env

@@ -72,6 +72,20 @@ resource "aws_secretsmanager_secret" "analytics" {
   }
 }
 
+# 6. Contêiner de Segredo para Observabilidade, APM, Incidentes e ChatOps (Fase 4)
+resource "aws_secretsmanager_secret" "observability" {
+  name                    = "${local.prefix}/observability"
+  description             = "Chaves de integracao para New Relic APM, PagerDuty e Discord Webhook (Fase 4)"
+  recovery_window_in_days = 0
+
+  tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    Service     = "observability"
+    ManagedBy   = "Terraform"
+  }
+}
+
 # IAM Policy para o External Secrets Operator (IRSA)
 resource "aws_iam_policy" "external_secrets_access" {
   name        = "${lower(var.project_name)}-eso-secrets-policy"
@@ -93,7 +107,8 @@ resource "aws_iam_policy" "external_secrets_access" {
           aws_secretsmanager_secret.flag.arn,
           aws_secretsmanager_secret.targeting.arn,
           aws_secretsmanager_secret.evaluation.arn,
-          aws_secretsmanager_secret.analytics.arn
+          aws_secretsmanager_secret.analytics.arn,
+          aws_secretsmanager_secret.observability.arn
         ]
       }
     ]

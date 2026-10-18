@@ -23,6 +23,11 @@ output "analytics_secret_arn" {
   value       = aws_secretsmanager_secret.analytics.arn
 }
 
+output "observability_secret_arn" {
+  description = "ARN of the Observability secret (New Relic, PagerDuty, Discord)"
+  value       = aws_secretsmanager_secret.observability.arn
+}
+
 output "eso_policy_arn" {
   description = "ARN of the IAM policy for External Secrets Operator"
   value       = aws_iam_policy.external_secrets_access.arn

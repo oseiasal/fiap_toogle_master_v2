@@ -19,6 +19,7 @@ terraform/.terraform.tfstate.lock.info
 deployment-summary.txt
 .env
 .env.*
+!.env.observability.example
 k8s/.env
 k8s/.env.*
 k8s/*.env
