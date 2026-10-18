@@ -74,8 +74,11 @@ services:
       - PORT=8001
       - DATABASE_URL=postgres://user:password@postgres-auth:5432/auth_db?sslmode=disable
       - MASTER_KEY=sua_chave_mestra_aqui
+      - OTEL_SERVICE_NAME=auth-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
     depends_on:
       - postgres-auth
+      - otel-collector
 
   flag-service:
     build:
@@ -89,9 +92,12 @@ services:
       - PORT=8002
       - DATABASE_URL=postgres://user:password@postgres-main:5432/main_db?sslmode=disable
       - AUTH_SERVICE_URL=http://auth-service:8001
+      - OTEL_SERVICE_NAME=flag-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
     depends_on:
       - postgres-main
       - auth-service
+      - otel-collector
 
   targeting-service:
     build:
@@ -105,9 +111,12 @@ services:
       - PORT=8003
       - DATABASE_URL=postgres://user:password@postgres-main:5432/main_db?sslmode=disable
       - AUTH_SERVICE_URL=http://auth-service:8001
+      - OTEL_SERVICE_NAME=targeting-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
     depends_on:
       - postgres-main
       - auth-service
+      - otel-collector
 
   evaluation-service:
     build:
@@ -128,11 +137,14 @@ services:
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
       - SERVICE_API_KEY=tm_key_f54b81bc161a5b84c277ed954384ae950c87adb8c795892db4abfaef75aaacab
+      - OTEL_SERVICE_NAME=evaluation-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
     depends_on:
       - redis
       - flag-service
       - targeting-service
       - localstack
+      - otel-collector
 
   analytics-service:
     build:
@@ -151,7 +163,58 @@ services:
       - AWS_DYNAMODB_TABLE=ToggleMasterAnalytics
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
+      - OTEL_SERVICE_NAME=analytics-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
     depends_on:
       - localstack
       - dynamodb-local
       - setup-aws
+      - otel-collector
+
+  # --- Observability Stack (OpenTelemetry + Prometheus + Loki + Grafana) ---
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.108.0
+    restart: always
+    command: ["--config=/etc/otelcol-contrib/otel-collector-config.yaml"]
+    volumes:
+      - ./observability/otel-collector-config.yaml:/etc/otelcol-contrib/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "8889:8889"
+      - "13133:13133"
+    depends_on:
+      - loki
+
+  loki:
+    image: grafana/loki:2.9.8
+    restart: always
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    restart: always
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - otel-collector
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    restart: always
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./observability/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - loki
+

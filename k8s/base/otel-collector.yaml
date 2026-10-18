@@ -1,0 +1,190 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: toogle-master
+  labels:
+    app: otel-collector
+data:
+  otel-collector-config.yaml: |
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 200
+        spike_limit_mib: 50
+
+      batch:
+        send_batch_size: 512
+        timeout: 2s
+
+      resource:
+        attributes:
+          - key: deployment.environment
+            value: prod
+            action: upsert
+          - key: cluster.name
+            value: tooglemaster-dev-eks
+            action: upsert
+          - key: loki.attribute.labels
+            value: service.name
+            action: insert
+
+    exporters:
+      prometheus:
+        endpoint: "0.0.0.0:8889"
+        send_timestamps: true
+        metric_expiration: 5m
+        resource_to_telemetry_conversion:
+          enabled: true
+
+      loki:
+        endpoint: "http://loki.toogle-master.svc.cluster.local:3100/loki/api/v1/push"
+        default_labels_enabled:
+          exporter: false
+          job: true
+
+      otlphttp/newrelic:
+        endpoint: "${env:NEW_RELIC_OTLP_ENDPOINT}"
+        headers:
+          api-key: "${env:NEW_RELIC_LICENSE_KEY}"
+
+      debug:
+        verbosity: basic
+
+    service:
+      extensions: [health_check]
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, resource, batch]
+          exporters: [otlphttp/newrelic, debug]
+        metrics:
+          receivers: [otlp]
+          processors: [memory_limiter, resource, batch]
+          exporters: [prometheus, otlphttp/newrelic, debug]
+        logs:
+          receivers: [otlp]
+          processors: [memory_limiter, resource, batch]
+          exporters: [loki, otlphttp/newrelic, debug]
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: toogle-master
+  labels:
+    app: otel-collector
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8889"
+    prometheus.io/path: "/metrics"
+spec:
+  selector:
+    app: otel-collector
+  ports:
+    - name: otlp-grpc
+      protocol: TCP
+      port: 4317
+      targetPort: 4317
+    - name: otlp-http
+      protocol: TCP
+      port: 4318
+      targetPort: 4318
+    - name: prometheus
+      protocol: TCP
+      port: 8889
+      targetPort: 8889
+    - name: health
+      protocol: TCP
+      port: 13133
+      targetPort: 13133
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: toogle-master
+  labels:
+    app: otel-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8889"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: otel-collector
+          image: otel/opentelemetry-collector-contrib:0.108.0
+          args:
+            - "--config=/etc/otelcol-contrib/otel-collector-config.yaml"
+          ports:
+            - containerPort: 4317
+              name: otlp-grpc
+            - containerPort: 4318
+              name: otlp-http
+            - containerPort: 8889
+              name: prometheus
+            - containerPort: 13133
+              name: health
+          env:
+            - name: NEW_RELIC_OTLP_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: observability-secret
+                  key: NEW_RELIC_OTLP_ENDPOINT
+                  optional: true
+            - name: NEW_RELIC_LICENSE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: observability-secret
+                  key: NEW_RELIC_LICENSE_KEY
+                  optional: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 13133
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 13133
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: otel-collector-config-vol
+              mountPath: /etc/otelcol-contrib
+      volumes:
+        - name: otel-collector-config-vol
+          configMap:
+            name: otel-collector-config

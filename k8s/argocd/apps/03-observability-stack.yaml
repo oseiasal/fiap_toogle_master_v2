@@ -1,0 +1,176 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tooglemaster-loki-stack
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: 'https://grafana.github.io/helm-charts'
+    chart: loki-stack
+    targetRevision: 2.10.2
+    helm:
+      releaseName: loki
+      values: |
+        fullnameOverride: loki
+        loki:
+          enabled: true
+          isDefault: false
+          persistence:
+            enabled: false
+          config:
+            limits_config:
+              reject_old_samples: true
+              reject_old_samples_max_age: 168h
+              allow_structured_metadata: false
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+        promtail:
+          enabled: true
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+        grafana:
+          enabled: false
+        prometheus:
+          enabled: false
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: toogle-master
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tooglemaster-observability-stack
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: 'https://prometheus-community.github.io/helm-charts'
+    chart: kube-prometheus-stack
+    targetRevision: 62.7.0
+    helm:
+      releaseName: observability
+      values: |
+        fullnameOverride: observability
+        alertmanager:
+          enabled: false
+        kubeApiServer:
+          enabled: false
+        kubeControllerManager:
+          enabled: false
+        kubeScheduler:
+          enabled: false
+        kubeEtcd:
+          enabled: false
+        kubeProxy:
+          enabled: false
+        prometheusOperator:
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+        prometheus:
+          prometheusSpec:
+            retention: 2d
+            scrapeInterval: 15s
+            evaluationInterval: 15s
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            additionalScrapeConfigs:
+              - job_name: 'otel-collector'
+                scrape_interval: 10s
+                static_configs:
+                  - targets: ['otel-collector.toogle-master.svc.cluster.local:8889']
+              - job_name: 'tooglemaster-microservices'
+                scrape_interval: 10s
+                metrics_path: /metrics
+                static_configs:
+                  - targets:
+                      - 'auth-service.toogle-master.svc.cluster.local:8001'
+                      - 'flag-service.toogle-master.svc.cluster.local:8002'
+                      - 'targeting-service.toogle-master.svc.cluster.local:8003'
+                      - 'evaluation-service.toogle-master.svc.cluster.local:8004'
+                      - 'analytics-service.toogle-master.svc.cluster.local:8005'
+        grafana:
+          enabled: true
+          fullnameOverride: grafana
+          adminPassword: admin
+          envFromSecret: observability-secret
+          grafana.ini:
+            server:
+              root_url: "%(protocol)s://%(domain)s/grafana/"
+              serve_from_sub_path: true
+            unified_alerting:
+              enabled: true
+            alerting:
+              enabled: false
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          additionalDataSources:
+            - name: Loki
+              type: loki
+              uid: loki
+              access: proxy
+              url: http://loki.toogle-master.svc.cluster.local:3100
+              jsonData:
+                maxLines: 1000
+          sidecar:
+            dashboards:
+              enabled: true
+              label: grafana_dashboard
+              labelValue: "1"
+              searchNamespace: toogle-master
+            alerts:
+              enabled: true
+              label: grafana_alert
+              labelValue: "1"
+              searchNamespace: toogle-master
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: toogle-master
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

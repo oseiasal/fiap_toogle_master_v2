@@ -6,8 +6,8 @@ metadata:
 data:
   PORT: "8002"
   AUTH_SERVICE_URL: "http://auth-service.toogle-master.svc.cluster.local:8001"
-
----
+  OTEL_SERVICE_NAME: "flag-service"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.toogle-master.svc.cluster.local:4318"
 
 ---
 apiVersion: v1
@@ -15,6 +15,10 @@ kind: Service
 metadata:
   name: flag-service
   namespace: toogle-master
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8002"
+    prometheus.io/path: "/metrics"
 spec:
   selector:
     app: flag-service
@@ -39,6 +43,10 @@ spec:
     metadata:
       labels:
         app: flag-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8002"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
       - name: flag-service
@@ -56,6 +64,16 @@ spec:
             configMapKeyRef:
               name: flag-service-config
               key: AUTH_SERVICE_URL
+        - name: OTEL_SERVICE_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: flag-service-config
+              key: OTEL_SERVICE_NAME
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: flag-service-config
+              key: OTEL_EXPORTER_OTLP_ENDPOINT
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:

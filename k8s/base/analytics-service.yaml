@@ -7,8 +7,8 @@ data:
   PORT: "8005"
   AWS_REGION: "us-east-1"
   AWS_DYNAMODB_TABLE: "ToggleMasterAnalytics"
-
----
+  OTEL_SERVICE_NAME: "analytics-service"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.toogle-master.svc.cluster.local:4318"
 
 ---
 apiVersion: v1
@@ -16,6 +16,10 @@ kind: Service
 metadata:
   name: analytics-service
   namespace: toogle-master
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8005"
+    prometheus.io/path: "/metrics"
 spec:
   selector:
     app: analytics-service
@@ -40,12 +44,14 @@ spec:
     metadata:
       labels:
         app: analytics-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8005"
+        prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: external-secrets-sa
       containers:
       - name: analytics-service
-
-
         image: 665303623973.dkr.ecr.us-east-1.amazonaws.com/analytics-service:latest
         ports:
         - containerPort: 8005
@@ -65,6 +71,16 @@ spec:
             configMapKeyRef:
               name: analytics-service-config
               key: AWS_DYNAMODB_TABLE
+        - name: OTEL_SERVICE_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: analytics-service-config
+              key: OTEL_SERVICE_NAME
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: analytics-service-config
+              key: OTEL_EXPORTER_OTLP_ENDPOINT
         - name: AWS_SQS_URL
           valueFrom:
             secretKeyRef:

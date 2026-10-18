@@ -8,14 +8,19 @@ data:
   FLAG_SERVICE_URL: "http://flag-service.toogle-master.svc.cluster.local:8002"
   TARGETING_SERVICE_URL: "http://targeting-service.toogle-master.svc.cluster.local:8003"
   AWS_REGION: "us-east-1"
+  OTEL_SERVICE_NAME: "evaluation-service"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.toogle-master.svc.cluster.local:4318"
 
----
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: evaluation-service
   namespace: toogle-master
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8004"
+    prometheus.io/path: "/metrics"
 spec:
   selector:
     app: evaluation-service
@@ -40,12 +45,14 @@ spec:
     metadata:
       labels:
         app: evaluation-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8004"
+        prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: external-secrets-sa
       containers:
       - name: evaluation-service
-
-
         image: 665303623973.dkr.ecr.us-east-1.amazonaws.com/evaluation-service:latest
         ports:
         - containerPort: 8004
@@ -70,6 +77,16 @@ spec:
             configMapKeyRef:
               name: evaluation-service-config
               key: AWS_REGION
+        - name: OTEL_SERVICE_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: evaluation-service-config
+              key: OTEL_SERVICE_NAME
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          valueFrom:
+            configMapKeyRef:
+              name: evaluation-service-config
+              key: OTEL_EXPORTER_OTLP_ENDPOINT
         - name: REDIS_URL
           valueFrom:
             secretKeyRef:

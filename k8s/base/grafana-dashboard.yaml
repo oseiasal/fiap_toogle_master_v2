@@ -1,0 +1,232 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tooglemaster-custom-dashboard
+  namespace: toogle-master
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/part-of: toogle-master-observability
+data:
+  tooglemaster-overview.json: |
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": {
+              "type": "grafana",
+              "uid": "-- Grafana --"
+            },
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "id": 1,
+          "panels": [],
+          "title": "1. Recursos do Cluster Kubernetes (Namespace: toogle-master)",
+          "type": "row"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "unit": "cores"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 7, "w": 12, "x": 0, "y": 1 },
+          "id": 2,
+          "options": {
+            "legend": { "calcs": ["mean", "max", "lastNotNull"], "displayMode": "table", "placement": "bottom" },
+            "tooltip": { "mode": "multi", "sort": "desc" }
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"toogle-master\", container!=\"\"}[2m])) by (pod)",
+              "legendFormat": "{{pod}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Uso de CPU por Pod (Cores)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 7, "w": 12, "x": 12, "y": 1 },
+          "id": 3,
+          "options": {
+            "legend": { "calcs": ["mean", "max", "lastNotNull"], "displayMode": "table", "placement": "bottom" },
+            "tooltip": { "mode": "multi", "sort": "desc" }
+          },
+          "targets": [
+            {
+              "expr": "sum(container_memory_working_set_bytes{namespace=\"toogle-master\", container!=\"\"}) by (pod)",
+              "legendFormat": "{{pod}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Uso de Memória Working Set por Pod (Bytes)",
+          "type": "timeseries"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 8 },
+          "id": 4,
+          "panels": [],
+          "title": "2. Golden Signals dos 5 Microsserviços (OpenTelemetry & Prometheus)",
+          "type": "row"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "unit": "reqps"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 8, "x": 0, "y": 9 },
+          "id": 5,
+          "options": {
+            "legend": { "calcs": ["mean", "max", "lastNotNull"], "displayMode": "table", "placement": "bottom" },
+            "tooltip": { "mode": "multi", "sort": "desc" }
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total[1m])) by (service)",
+              "legendFormat": "{{service}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Taxa de Requisições por Segundo (RPS) por Serviço",
+          "type": "timeseries"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "orange", "value": 2 },
+                  { "color": "red", "value": 5 }
+                ]
+              },
+              "custom": {
+                "thresholdsStyle": { "mode": "line+area" }
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 8, "x": 8, "y": 9 },
+          "id": 6,
+          "options": {
+            "legend": { "calcs": ["mean", "max", "lastNotNull"], "displayMode": "table", "placement": "bottom" },
+            "tooltip": { "mode": "multi", "sort": "desc" }
+          },
+          "targets": [
+            {
+              "expr": "(sum(rate(http_requests_total{status=~\"5..\"}[1m])) by (service) / clamp_min(sum(rate(http_requests_total[1m])) by (service), 0.0001)) * 100",
+              "legendFormat": "{{service}} (5xx %)",
+              "refId": "A"
+            }
+          ],
+          "title": "Taxa de Erros HTTP 5xx (%) — SLA Threshold 5%",
+          "type": "timeseries"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 9 },
+          "id": 7,
+          "options": {
+            "legend": { "calcs": ["mean", "max", "lastNotNull"], "displayMode": "table", "placement": "bottom" },
+            "tooltip": { "mode": "multi", "sort": "desc" }
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le, service))",
+              "legendFormat": "{{service}} (P95)",
+              "refId": "A"
+            }
+          ],
+          "title": "Latência HTTP P95 (Segundos) por Microsserviço",
+          "type": "timeseries"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
+          "id": 8,
+          "panels": [],
+          "title": "3. Logs Estruturados em Tempo Real (Loki + Trace Correlation)",
+          "type": "row"
+        },
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "gridPos": { "h": 10, "w": 24, "x": 0, "y": 18 },
+          "id": 9,
+          "options": {
+            "dedupStrategy": "none",
+            "enableLogDetails": true,
+            "prettifyLogMessage": true,
+            "showCommonLabels": false,
+            "showLabels": true,
+            "showTime": true,
+            "sortOrder": "Descending",
+            "wrapLogMessage": true
+          },
+          "targets": [
+            {
+              "expr": "{namespace=\"toogle-master\"} |= \"\"",
+              "refId": "A"
+            },
+            {
+              "expr": "{service_name=~\".+\"} |= \"\"",
+              "refId": "B"
+            }
+          ],
+          "title": "Logs Centralizados em Tempo Real (Loki — Microsserviços & Self-Healing)",
+          "type": "logs"
+        }
+      ],
+      "refresh": "5s",
+      "schemaVersion": 39,
+      "tags": ["tooglemaster", "fiap", "fase4", "opentelemetry"],
+      "templating": { "list": [] },
+      "time": { "from": "now-15m", "to": "now" },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "ToggleMaster — Observabilidade Total, Golden Signals & Logs (FIAP Fase 4)",
+      "uid": "tooglemaster-fase4-main",
+      "version": 1
+    }

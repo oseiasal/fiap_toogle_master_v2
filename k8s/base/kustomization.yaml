@@ -10,4 +10,6 @@ resources:
   - targeting-service.yaml
   - evaluation-service.yaml
   - analytics-service.yaml
+  - otel-collector.yaml
+  - grafana-dashboard.yaml
   - ingress.yaml
