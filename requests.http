@@ -1,8 +1,8 @@
 ### ============================================================================
-### TOOGLE MASTER - API REQUESTS
+### TOOGLE MASTER - API & OBSERVABILITY REQUESTS (FASE 4)
 ### ============================================================================
 ### Este arquivo pode ser usado com a extensão "REST Client" no VS Code
-### ou no WebStorm para testar as APIs localmente.
+### ou no WebStorm para testar as APIs, Métricas, Tracing e Chaos localmente.
 ### ============================================================================
 
 @auth_host = http://localhost:8001
@@ -11,9 +11,15 @@
 @evaluation_host = http://localhost:8004
 @analytics_host = http://localhost:8005
 
-# Substitua pelas chaves reais após cria-las
+@otel_health_host = http://localhost:13133
+@otel_metrics_host = http://localhost:8889
+@prometheus_host = http://localhost:9090
+@loki_host = http://localhost:3100
+@grafana_host = http://localhost:3000
+
+# Chave mestra e chave de API padrão já pré-cadastrada no seed (init.sql)
 @master_key = sua_chave_mestra_aqui
-@api_key = tm_key_fe9f3db5d2d3e40dc2bbb753ed1c50a12da0677a9a58e26d983a3bd0c5ea30b0
+@api_key = tm_key_f54b81bc161a5b84c277ed954384ae950c87adb8c795892db4abfaef75aaacab
 
 ### ============================================================================
 ### 1. AUTH SERVICE (Porta 8001)
@@ -32,9 +38,12 @@ Content-Type: application/json
     "name": "Chave do Flag Service"
 }
 
-### 1.3. Validar chave de API
+### 1.3. Validar chave de API (Padrão do Seed)
 GET {{auth_host}}/validate
 Authorization: Bearer {{api_key}}
+
+### 1.4. Métricas Prometheus do Auth Service
+GET {{auth_host}}/metrics
 
 
 ### ============================================================================
@@ -44,13 +53,13 @@ Authorization: Bearer {{api_key}}
 ### 2.1. Health Check
 GET {{flag_host}}/health
 
-### 2.2. Criar uma nova Flag (Requer API KEY válida)
+### 2.2. Criar uma nova Flag (new_checkout_flow)
 POST {{flag_host}}/flags
 Authorization: Bearer {{api_key}}
 Content-Type: application/json
 
 {
-    "name": "testenovo3",
+    "name": "new_checkout_flow",
     "description": "Ativa o novo fluxo de checkout",
     "is_enabled": true
 }
@@ -60,8 +69,11 @@ GET {{flag_host}}/flags
 Authorization: Bearer {{api_key}}
 
 ### 2.4. Buscar uma Flag específica
-GET {{flag_host}}/flags/testenovo
+GET {{flag_host}}/flags/new_checkout_flow
 Authorization: Bearer {{api_key}}
+
+### 2.5. Métricas Prometheus do Flag Service
+GET {{flag_host}}/metrics
 
 
 ### ============================================================================
@@ -71,13 +83,13 @@ Authorization: Bearer {{api_key}}
 ### 3.1. Health Check
 GET {{targeting_host}}/health
 
-### 3.2. Criar uma regra para uma Flag
+### 3.2. Criar uma regra para a Flag (new_checkout_flow)
 POST {{targeting_host}}/rules
 Authorization: Bearer {{api_key}}
 Content-Type: application/json
 
 {
-    "flag_name": "testenovo3",
+    "flag_name": "new_checkout_flow",
     "is_enabled": true,
     "rules": {
         "type": "PERCENTAGE",
@@ -89,18 +101,22 @@ Content-Type: application/json
 GET {{targeting_host}}/rules/new_checkout_flow
 Authorization: Bearer {{api_key}}
 
+### 3.4. Métricas Prometheus do Targeting Service
+GET {{targeting_host}}/metrics
+
 
 ### ============================================================================
-### 4. EVALUATION SERVICE (Porta 8004)
+### 4. EVALUATION SERVICE (Porta 8004 — Gera Trace Distribuído Ponta a Ponta)
 ### ============================================================================
 
 ### 4.1. Health Check
 GET {{evaluation_host}}/health
 
-### 4.2. Avaliar uma Flag para um Usuário (Requer API KEY válida)
-# O Evaluation precisa se comunicar com Redis, Flag e Targeting para responder
+### 4.2. Avaliar uma Flag para um Usuário (Dispara HTTP -> Flag/Targeting -> Auth e SQS -> Analytics)
 GET {{evaluation_host}}/evaluate?flag_name=new_checkout_flow&user_id=user_12345
-Authorization: Bearer {{api_key}}
+
+### 4.3. Métricas Prometheus do Evaluation Service
+GET {{evaluation_host}}/metrics
 
 
 ### ============================================================================
@@ -108,6 +124,56 @@ Authorization: Bearer {{api_key}}
 ### ============================================================================
 
 ### 5.1. Health Check
-# Nota: O Analytics Service processa mensagens do SQS em background.
-# O endpoint HTTP serve apenas para health check.
 GET {{analytics_host}}/health
+
+### 5.2. Métricas Prometheus do Analytics Service (Inclui analytics_events_processed_total)
+GET {{analytics_host}}/metrics
+
+
+### ============================================================================
+### 6. CHAOS ENGINEERING & PROVA REAL (FASE 4 — Simulação de Incidentes HTTP 500)
+### ============================================================================
+
+### 6.1. Consultar status do Chaos Mode no Evaluation Service
+GET {{evaluation_host}}/chaos/fail
+
+### 6.2. ATIVAR falha proposital (HTTP 500) no Evaluation Service (Para disparar Alerta > 5%)
+POST {{evaluation_host}}/chaos/fail?enable=true
+
+### 6.3. DESATIVAR falha proposital no Evaluation Service (Restaurar operação normal)
+POST {{evaluation_host}}/chaos/fail?enable=false
+
+### 6.4. ATIVAR falha proposital (HTTP 500) no Auth Service
+POST {{auth_host}}/chaos/fail?enable=true
+
+### 6.5. DESATIVAR falha proposital no Auth Service
+POST {{auth_host}}/chaos/fail?enable=false
+
+### 6.6. ATIVAR falha proposital (HTTP 500) no Flag Service
+POST {{flag_host}}/chaos/fail?enable=true
+
+### 6.7. DESATIVAR falha proposital no Flag Service
+POST {{flag_host}}/chaos/fail?enable=false
+
+
+### ============================================================================
+### 7. OBSERVABILITY STACK (OTel Collector, Prometheus, Loki & Grafana)
+### ============================================================================
+
+### 7.1. OpenTelemetry Collector Health Check
+GET {{otel_health_host}}/
+
+### 7.2. OpenTelemetry Collector Prometheus Exporter Metrics
+GET {{otel_metrics_host}}/metrics
+
+### 7.3. Prometheus Targets Status
+GET {{prometheus_host}}/api/v1/targets
+
+### 7.4. Loki Ready Check
+GET {{loki_host}}/ready
+
+### 7.5. Loki Labels Disponíveis
+GET {{loki_host}}/loki/api/v1/labels
+
+### 7.6. Grafana Health Check
+GET {{grafana_host}}/api/health
