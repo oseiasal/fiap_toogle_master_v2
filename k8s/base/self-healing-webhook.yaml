@@ -1,0 +1,321 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: self-healing-sa
+  namespace: toogle-master
+  labels:
+    app: self-healing-webhook
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: self-healing-role
+  namespace: toogle-master
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: self-healing-rolebinding
+  namespace: toogle-master
+subjects:
+  - kind: ServiceAccount
+    name: self-healing-sa
+    namespace: toogle-master
+roleRef:
+  kind: Role
+  name: self-healing-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: self-healing-script
+  namespace: toogle-master
+  labels:
+    app: self-healing-webhook
+data:
+  webhook.py: |
+    import datetime
+    import json
+    import os
+    import ssl
+    import sys
+    import urllib.request
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    NAMESPACE = os.getenv("POD_NAMESPACE", "toogle-master")
+    DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL", "")
+    ALLOWED_SERVICES = {
+        "auth-service": 8001,
+        "flag-service": 8002,
+        "targeting-service": 8003,
+        "evaluation-service": 8004,
+        "analytics-service": 8005,
+    }
+
+    def log_json(level, event, **kwargs):
+        entry = {
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "level": level,
+            "service": "self-healing-webhook",
+            "event": event,
+        }
+        entry.update(kwargs)
+        print(json.dumps(entry), flush=True)
+
+    def notify_discord(service_name, action_result, alert_status):
+        if not DISCORD_WEBHOOK_URL or "placeholder" in DISCORD_WEBHOOK_URL:
+            log_json("INFO", "discord_notification_skipped", reason="DISCORD_WEBHOOK_URL not configured or placeholder")
+            return
+        payload = {
+            "username": "ToggleMaster Self-Healing Bot",
+            "embeds": [
+                {
+                    "title": f"🛠️ Self-Healing Executado: `{service_name}`",
+                    "description": (
+                        f"**Status do Alerta:** `{alert_status}`\n"
+                        f"**Ação Automática:** `kubectl rollout restart deployment/{service_name} -n {NAMESPACE}`\n"
+                        f"**Resultado:** {action_result}"
+                    ),
+                    "color": 3066993,
+                    "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                }
+            ],
+        }
+        try:
+            req = urllib.request.Request(
+                DISCORD_WEBHOOK_URL,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json", "User-Agent": "ToggleMaster-SelfHealing/1.0"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                log_json("INFO", "discord_notification_sent", service=service_name, status_code=resp.status)
+        except Exception as exc:
+            log_json("WARN", "discord_notification_failed", service=service_name, error=str(exc))
+
+    def reset_chaos_endpoint(service_name):
+        port = ALLOWED_SERVICES.get(service_name)
+        if not port:
+            return "unknown_service_port"
+        hosts = [
+            f"http://{service_name}.{NAMESPACE}.svc.cluster.local:{port}/chaos/fail?enable=false",
+            f"http://{service_name}:{port}/chaos/fail?enable=false",
+        ]
+        for url in hosts:
+            try:
+                req = urllib.request.Request(url, method="POST")
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    if resp.status < 300:
+                        return f"Chaos mode reset via {url}"
+            except Exception:
+                continue
+        return "chaos_endpoint_unreachable"
+
+    def k8s_rollout_restart(service_name):
+        token_path = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        ca_path = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+        chaos_msg = reset_chaos_endpoint(service_name)
+
+        if not os.path.exists(token_path):
+            log_json("INFO", "local_self_healing_completed", target_service=service_name, detail=chaos_msg)
+            return f"Local Self-Healing ({chaos_msg})"
+
+        with open(token_path, "r", encoding="utf-8") as f:
+            token = f.read().strip()
+
+        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        patch_body = {
+            "spec": {
+                "template": {
+                    "metadata": {
+                        "annotations": {
+                            "kubectl.kubernetes.io/restartedAt": now_iso,
+                            "self-healing.tooglemaster.io/remediatedAt": now_iso,
+                        }
+                    }
+                }
+            }
+        }
+        k8s_host = os.getenv("KUBERNETES_SERVICE_HOST", "kubernetes.default.svc")
+        k8s_port = os.getenv("KUBERNETES_SERVICE_PORT", "443")
+        url = f"https://{k8s_host}:{k8s_port}/apis/apps/v1/namespaces/{NAMESPACE}/deployments/{service_name}"
+
+        ctx = ssl.create_default_context(cafile=ca_path if os.path.exists(ca_path) else None)
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(patch_body).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/strategic-merge-patch+json",
+            },
+            method="PATCH",
+        )
+        with urllib.request.urlopen(req, context=ctx, timeout=10) as resp:
+            log_json(
+                "INFO",
+                "k8s_rollout_restart_succeeded",
+                target_service=service_name,
+                http_status=resp.status,
+                restarted_at=now_iso,
+                chaos_reset=chaos_msg,
+            )
+            return f"K8s Rollout Restart triggered at {now_iso} ({chaos_msg})"
+
+    class SelfHealingHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/health":
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "ok", "service": "self-healing-webhook"}).encode("utf-8"))
+                return
+            self.send_response(404)
+            self.end_headers()
+
+        def do_POST(self):
+            if not self.path.startswith("/webhook/self-heal"):
+                self.send_response(404)
+                self.end_headers()
+                return
+
+            content_len = int(self.headers.get("Content-Length", 0))
+            raw_body = self.rfile.read(content_len).decode("utf-8") if content_len > 0 else "{}"
+            try:
+                payload = json.loads(raw_body)
+            except Exception:
+                payload = {}
+
+            alerts = payload.get("alerts", [])
+            remediated = []
+            target_services = set()
+
+            for alert in alerts:
+                status = alert.get("status", payload.get("status", "firing"))
+                labels = alert.get("labels", {})
+                svc = labels.get("service") or labels.get("service_name") or labels.get("deployment")
+                if status == "firing" and svc in ALLOWED_SERVICES:
+                    target_services.add(svc)
+
+            if not target_services and payload.get("service") in ALLOWED_SERVICES:
+                target_services.add(payload["service"])
+
+            if not target_services and payload.get("status", "firing") == "firing":
+                # Fallback se o alerta de teste do Grafana não enviar label service explícita
+                target_services.add("evaluation-service")
+
+            for svc in target_services:
+                try:
+                    log_json("WARN", "self_healing_triggered", target_service=svc)
+                    result = k8s_rollout_restart(svc)
+                    notify_discord(svc, result, "firing -> remediated")
+                    remediated.append({"service": svc, "result": result})
+                except Exception as exc:
+                    log_json("ERROR", "self_healing_failed", target_service=svc, error=str(exc))
+                    remediated.append({"service": svc, "error": str(exc)})
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "processed", "remediated": remediated}).encode("utf-8"))
+
+        def log_message(self, format, *args):
+            return
+
+    if __name__ == "__main__":
+        port = int(os.getenv("PORT", "8090"))
+        log_json("INFO", "self_healing_webhook_started", port=port, namespace=NAMESPACE)
+        HTTPServer(("0.0.0.0", port), SelfHealingHandler).serve_forever()
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: self-healing-webhook
+  namespace: toogle-master
+  labels:
+    app: self-healing-webhook
+spec:
+  selector:
+    app: self-healing-webhook
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8090
+      targetPort: 8090
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: self-healing-webhook
+  namespace: toogle-master
+  labels:
+    app: self-healing-webhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: self-healing-webhook
+  template:
+    metadata:
+      labels:
+        app: self-healing-webhook
+    spec:
+      serviceAccountName: self-healing-sa
+      containers:
+        - name: self-healing-webhook
+          image: python:3.11-slim
+          command: ["python", "/app/webhook.py"]
+          ports:
+            - containerPort: 8090
+          env:
+            - name: PORT
+              value: "8090"
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: DISCORD_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: observability-secret
+                  key: DISCORD_WEBHOOK_URL
+                  optional: true
+          resources:
+            requests:
+              cpu: "25m"
+              memory: "64Mi"
+            limits:
+              cpu: "100m"
+              memory: "128Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8090
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8090
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          volumeMounts:
+            - name: self-healing-script-vol
+              mountPath: /app
+      volumes:
+        - name: self-healing-script-vol
+          configMap:
+            name: self-healing-script

@@ -1,0 +1,82 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: self-healing-local-webhook
+    receivers:
+      - uid: self-healing-webhook-local
+        type: webhook
+        disableResolveMessage: false
+        settings:
+          url: http://self-healing-webhook:8090/webhook/self-heal
+          httpMethod: POST
+
+policies:
+  - orgId: 1
+    receiver: self-healing-local-webhook
+    group_by: ['alertname', 'service']
+    group_wait: 5s
+    group_interval: 15s
+    repeat_interval: 5m
+
+groups:
+  - orgId: 1
+    name: ToggleMaster_SLA_Alerts
+    folder: ToggleMaster Alerts
+    interval: 10s
+    rules:
+      - uid: tm_high_5xx_rule
+        title: ToggleMaster_High_Error_Rate_5xx
+        condition: C
+        for: 20s
+        noDataState: OK
+        execErrState: OK
+        annotations:
+          summary: "Taxa de erros HTTP 5xx acima de 5% no serviço {{ $labels.service }}"
+          description: "O microsserviço {{ $labels.service }} excedeu o limite de SLA (5% de erros HTTP 5xx). Acionando PagerDuty, Discord ChatOps e Self-Healing automático."
+        labels:
+          severity: critical
+          team: sre-tooglemaster
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 120
+              to: 0
+            datasourceUid: prometheus
+            model:
+              expr: "(sum by (service) (rate(http_requests_total{status=~\"5..\"}[1m])) / clamp_min(sum by (service) (rate(http_requests_total[1m])), 0.0001)) * 100"
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 120
+              to: 0
+            datasourceUid: __expr__
+            model:
+              expression: A
+              reducer: last
+              refId: B
+              type: reduce
+          - refId: C
+            relativeTimeRange:
+              from: 120
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: [5]
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params: [C]
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              expression: B
+              refId: C
+              type: threshold

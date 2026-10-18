@@ -12,4 +12,6 @@ resources:
   - analytics-service.yaml
   - otel-collector.yaml
   - grafana-dashboard.yaml
+  - grafana-alerting.yaml
+  - self-healing-webhook.yaml
   - ingress.yaml

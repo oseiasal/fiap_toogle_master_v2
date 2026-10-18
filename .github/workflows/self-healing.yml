@@ -1,0 +1,68 @@
+name: "Self-Healing Runbook — Auto-Remediation (EKS Rollout Restart)"
+
+on:
+  repository_dispatch:
+    types: [grafana-alert-self-heal]
+  workflow_dispatch:
+    inputs:
+      service_name:
+        description: "Microsserviço afetado para executar rollout restart no EKS"
+        required: true
+        default: "evaluation-service"
+        type: choice
+        options:
+          - auth-service
+          - flag-service
+          - targeting-service
+          - evaluation-service
+          - analytics-service
+      namespace:
+        description: "Namespace Kubernetes"
+        required: true
+        default: "toogle-master"
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  self-heal-eks:
+    name: "Auto-Heal Microservice in Amazon EKS"
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: "us-east-1"
+      EKS_CLUSTER_NAME: "tooglemaster-dev-eks"
+      TARGET_SERVICE: ${{ github.event.inputs.service_name || github.event.client_payload.service || 'evaluation-service' }}
+      TARGET_NAMESPACE: ${{ github.event.inputs.namespace || github.event.client_payload.namespace || 'toogle-master' }}
+    steps:
+      - name: "1. Authenticate to AWS via OIDC"
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: "2. Configure kubeconfig for Amazon EKS"
+        run: |
+          aws eks update-kubeconfig --region "$AWS_REGION" --name "$EKS_CLUSTER_NAME"
+
+      - name: "3. Execute Self-Healing (kubectl rollout restart)"
+        run: |
+          echo "🚨 Iniciando Self-Healing automático para deployment/${TARGET_SERVICE} no namespace ${TARGET_NAMESPACE}..."
+          kubectl rollout restart "deployment/${TARGET_SERVICE}" -n "${TARGET_NAMESPACE}"
+          kubectl rollout status "deployment/${TARGET_SERVICE}" -n "${TARGET_NAMESPACE}" --timeout=120s
+          echo "✅ Self-Healing concluído com sucesso para ${TARGET_SERVICE}!"
+
+      - name: "4. Publish Runbook Execution Summary"
+        if: always()
+        run: |
+          {
+            echo "### 🛠️ Self-Healing Runbook Summary (FIAP Fase 4)"
+            echo "| Campo | Valor |"
+            echo "| :--- | :--- |"
+            echo "| **Cluster EKS** | \`${EKS_CLUSTER_NAME}\` |"
+            echo "| **Namespace** | \`${TARGET_NAMESPACE}\` |"
+            echo "| **Microsserviço Remediado** | \`${TARGET_SERVICE}\` |"
+            echo "| **Ação Executada** | \`kubectl rollout restart deployment/${TARGET_SERVICE}\` |"
+            echo "| **Trigger** | \`${{ github.event_name }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"

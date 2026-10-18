@@ -1,0 +1,130 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tooglemaster-grafana-alerting
+  namespace: toogle-master
+  labels:
+    grafana_alert: "1"
+    app.kubernetes.io/part-of: toogle-master-observability
+data:
+  tooglemaster-alerting.yaml: |
+    apiVersion: 1
+
+    contactPoints:
+      - orgId: 1
+        name: self-healing-multi-channel
+        receivers:
+          - uid: self-healing-webhook-uid
+            type: webhook
+            disableResolveMessage: false
+            settings:
+              url: http://self-healing-webhook.toogle-master.svc.cluster.local:8090/webhook/self-heal
+              httpMethod: POST
+          - uid: pagerduty-incident-uid
+            type: pagerduty
+            disableResolveMessage: false
+            settings:
+              integrationKey: ${PAGERDUTY_INTEGRATION_KEY}
+              severity: critical
+              class: HighErrorRate5xx
+              component: ToggleMaster-Microservices
+              group: production
+          - uid: discord-chatops-uid
+            type: discord
+            disableResolveMessage: false
+            settings:
+              url: ${DISCORD_WEBHOOK_URL}
+              use_discord_username: true
+
+    policies:
+      - orgId: 1
+        receiver: self-healing-multi-channel
+        group_by: ['alertname', 'service']
+        group_wait: 5s
+        group_interval: 30s
+        repeat_interval: 15m
+
+    groups:
+      - orgId: 1
+        name: ToggleMaster_SLA_Alerts
+        folder: ToggleMaster Alerts
+        interval: 10s
+        rules:
+          - uid: tm_high_5xx_rule
+            title: ToggleMaster_High_Error_Rate_5xx
+            condition: C
+            for: 20s
+            noDataState: OK
+            execErrState: OK
+            annotations:
+              summary: "Taxa de erros HTTP 5xx acima de 5% no serviço {{ $labels.service }}"
+              description: "O microsserviço {{ $labels.service }} excedeu o limite de SLA (5% de erros HTTP 5xx). Acionando PagerDuty, Discord ChatOps e Self-Healing automático (kubectl rollout restart)."
+              runbook_url: "https://github.com/oseiasal/fiap_toogle_master_v2/actions/workflows/self-healing.yml"
+            labels:
+              severity: critical
+              team: sre-tooglemaster
+            data:
+              - refId: A
+                relativeTimeRange:
+                  from: 120
+                  to: 0
+                datasourceUid: prometheus
+                model:
+                  expr: "(sum by (service) (rate(http_requests_total{status=~\"5..\"}[1m])) / clamp_min(sum by (service) (rate(http_requests_total[1m])), 0.0001)) * 100"
+                  instant: true
+                  intervalMs: 1000
+                  maxDataPoints: 43200
+                  refId: A
+              - refId: B
+                relativeTimeRange:
+                  from: 120
+                  to: 0
+                datasourceUid: __expr__
+                model:
+                  conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params: [B]
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+                  expression: A
+                  intervalMs: 1000
+                  maxDataPoints: 43200
+                  reducer: last
+                  refId: B
+                  type: reduce
+              - refId: C
+                relativeTimeRange:
+                  from: 120
+                  to: 0
+                datasourceUid: __expr__
+                model:
+                  conditions:
+                    - evaluator:
+                        params: [5]
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params: [C]
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+                  expression: B
+                  intervalMs: 1000
+                  maxDataPoints: 43200
+                  refId: C
+                  type: threshold

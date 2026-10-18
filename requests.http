@@ -177,3 +177,25 @@ GET {{loki_host}}/loki/api/v1/labels
 
 ### 7.6. Grafana Health Check
 GET {{grafana_host}}/api/health
+
+### 7.7. Self-Healing Webhook Health Check (Porta 8090)
+GET http://localhost:8090/health
+
+### 7.8. Testar disparo manual do Self-Healing Webhook (Simula Alerta Firing do Grafana)
+POST http://localhost:8090/webhook/self-heal
+Content-Type: application/json
+
+{
+  "status": "firing",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {
+        "alertname": "ToggleMaster_High_Error_Rate_5xx",
+        "service": "evaluation-service",
+        "severity": "critical"
+      }
+    }
+  ]
+}
+

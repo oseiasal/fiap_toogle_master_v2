@@ -224,9 +224,21 @@ services:
       - ./observability/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
       - ./observability/grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
       - ./observability/dashboards:/var/lib/grafana/dashboards:ro
+      - ./observability/grafana-alerting.yml:/etc/grafana/provisioning/alerting/alerting.yml:ro
     ports:
       - "3000:3000"
     depends_on:
       - prometheus
       - loki
+      - self-healing-webhook
+
+  self-healing-webhook:
+    image: python:3.11-slim
+    restart: always
+    command: ["python", "/app/webhook.py"]
+    volumes:
+      - ./observability/self-healing-webhook.py:/app/webhook.py:ro
+    ports:
+      - "8090:8090"
+
 
