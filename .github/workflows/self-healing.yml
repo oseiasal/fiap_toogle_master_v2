@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       AWS_REGION: "us-east-1"
-      EKS_CLUSTER_NAME: "tooglemaster-dev-eks"
+      EKS_CLUSTER_NAME: "toogle-cluster"
       TARGET_SERVICE: ${{ github.event.inputs.service_name || github.event.client_payload.service || 'evaluation-service' }}
       TARGET_NAMESPACE: ${{ github.event.inputs.namespace || github.event.client_payload.namespace || 'toogle-master' }}
     steps:

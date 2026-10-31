@@ -36,6 +36,11 @@ on:
         required: false
         type: boolean
         default: false
+      bootstrap_gitops:
+        description: 'Executar Bootstrap do EKS (Kustomize + ArgoCD App of Apps) após Apply do Dev'
+        required: false
+        type: boolean
+        default: true
 
 concurrency:
   group: terraform-pipeline-${{ github.ref }}
@@ -97,3 +102,18 @@ jobs:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       AWS_ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
 
+  # 4. Bootstrap Kubernetes (Kustomize + ArgoCD App of Apps + Secrets + DB Seed)
+  bootstrap-gitops:
+    name: ☸️ Bootstrap EKS (Kustomize & ArgoCD App of Apps)
+    needs: [ dev-stack ]
+    if: inputs.action == 'apply' && inputs.bootstrap_gitops != false && needs.dev-stack.result == 'success'
+    permissions:
+      id-token: write
+      contents: read
+    uses: ./.github/workflows/bootstrap-k8s-gitops.yml
+    with:
+      cluster_name: 'toogle-cluster'
+      aws_region: 'us-east-1'
+      local_admin_principal_arn: 'arn:aws:iam::665303623973:user/terraform'
+      run_db_seed: true
+    secrets: inherit

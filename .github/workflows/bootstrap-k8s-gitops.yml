@@ -1,0 +1,225 @@
+name: 🚀 Bootstrap EKS Cluster (Kustomize + ArgoCD App of Apps)
+
+on:
+  workflow_dispatch:
+    inputs:
+      cluster_name:
+        description: 'Nome do Cluster EKS na AWS'
+        required: true
+        type: string
+        default: 'toogle-cluster'
+      aws_region:
+        description: 'Região AWS'
+        required: true
+        type: string
+        default: 'us-east-1'
+      local_admin_principal_arn:
+        description: 'ARN do usuário IAM local para liberar acesso Admin no EKS (Access Entry)'
+        required: false
+        type: string
+        default: 'arn:aws:iam::665303623973:user/terraform'
+      run_db_seed:
+        description: 'Executar/aguardar Job de Seed SQL nos bancos RDS'
+        required: false
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      cluster_name:
+        required: false
+        type: string
+        default: 'toogle-cluster'
+      aws_region:
+        required: false
+        type: string
+        default: 'us-east-1'
+      local_admin_principal_arn:
+        required: false
+        type: string
+        default: 'arn:aws:iam::665303623973:user/terraform'
+      run_db_seed:
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: bootstrap-k8s-gitops-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bootstrap-gitops:
+    name: ☸️ Bootstrap Kustomize & ArgoCD App of Apps
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ inputs.aws_region || 'us-east-1' }}
+      EKS_CLUSTER_NAME: ${{ inputs.cluster_name || 'toogle-cluster' }}
+      LOCAL_ADMIN_ARN: ${{ inputs.local_admin_principal_arn || 'arn:aws:iam::665303623973:user/terraform' }}
+      NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
+      NEW_RELIC_OTLP_ENDPOINT: ${{ secrets.NEW_RELIC_OTLP_ENDPOINT }}
+      PAGERDUTY_INTEGRATION_KEY: ${{ secrets.PAGERDUTY_INTEGRATION_KEY }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+    steps:
+      - name: 📥 1. Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🔐 2. Authenticate to AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🔑 3. Ensure EKS API_AND_CONFIG_MAP & Local Admin Access Entry
+        run: |
+          echo "🔍 Verificando modo de autenticação do cluster ${EKS_CLUSTER_NAME}..."
+          AUTH_MODE=$(aws eks describe-cluster \
+            --name "${EKS_CLUSTER_NAME}" \
+            --region "${AWS_REGION}" \
+            --query "cluster.accessConfig.authenticationMode" \
+            --output text)
+          echo "   -> Modo atual: ${AUTH_MODE}"
+
+          if [ "${AUTH_MODE}" = "CONFIG_MAP" ]; then
+            echo "🔄 Atualizando authenticationMode para API_AND_CONFIG_MAP..."
+            UPDATE_ID=$(aws eks update-cluster-config \
+              --name "${EKS_CLUSTER_NAME}" \
+              --region "${AWS_REGION}" \
+              --access-config authenticationMode=API_AND_CONFIG_MAP \
+              --query "update.id" \
+              --output text)
+            echo "⏳ Aguardando conclusão do update (${UPDATE_ID})..."
+            aws eks wait cluster-active --name "${EKS_CLUSTER_NAME}" --region "${AWS_REGION}"
+            for i in $(seq 1 30); do
+              STATUS=$(aws eks describe-update \
+                --name "${EKS_CLUSTER_NAME}" \
+                --update-id "${UPDATE_ID}" \
+                --region "${AWS_REGION}" \
+                --query "update.status" \
+                --output text)
+              echo "   -> Status do update: ${STATUS}"
+              [ "${STATUS}" = "Successful" ] && break
+              sleep 5
+            done
+          fi
+
+          if [ -n "${LOCAL_ADMIN_ARN}" ]; then
+            echo "🛡️ Garantindo EKS Access Entry (Admin) para ${LOCAL_ADMIN_ARN}..."
+            aws eks create-access-entry \
+              --cluster-name "${EKS_CLUSTER_NAME}" \
+              --region "${AWS_REGION}" \
+              --principal-arn "${LOCAL_ADMIN_ARN}" \
+              --type STANDARD 2>/dev/null || echo "   -> Access Entry já existe."
+
+            aws eks associate-access-policy \
+              --cluster-name "${EKS_CLUSTER_NAME}" \
+              --region "${AWS_REGION}" \
+              --principal-arn "${LOCAL_ADMIN_ARN}" \
+              --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
+              --access-scope type=cluster >/dev/null
+            echo "✅ Permissão AmazonEKSClusterAdminPolicy garantida para ${LOCAL_ADMIN_ARN}!"
+          fi
+
+      - name: ☸️ 4. Configure kubeconfig & Verify EKS Nodes
+        run: |
+          aws eks update-kubeconfig --name "${EKS_CLUSTER_NAME}" --region "${AWS_REGION}"
+          kubectl get nodes -o wide
+
+      - name: 🧪 5. Validate Kustomize Production Overlay
+        run: |
+          echo "🔎 Validando build do Kustomize (k8s/overlays/prod)..."
+          kubectl kustomize k8s/overlays/prod > /tmp/prod-rendered.yaml
+          echo "✅ Manifesto Kustomize renderizado com sucesso ($(wc -l < /tmp/prod-rendered.yaml) linhas)."
+
+      - name: 🗝️ 6. Populate AWS Secrets Manager (RDS, Redis, SQS & Observability)
+        run: |
+          python3 scripts/update_secrets.py
+
+      - name: 📦 7. Pre-Install External Secrets CRDs & Kustomize Base Infrastructure
+        run: |
+          echo "📦 Aplicando CRDs do External Secrets Operator (bundle.yaml)..."
+          kubectl apply --server-side -f k8s/overlays/prod/bundle.yaml
+          kubectl wait --for=condition=Established crd/secretstores.external-secrets.io crd/externalsecrets.external-secrets.io --timeout=60s
+
+          echo "🚀 Aplicando overlay de produção com Kustomize (k8s/overlays/prod)..."
+          kubectl apply --server-side -k k8s/overlays/prod
+
+          echo "⏳ Aguardando External Secrets Operator iniciar..."
+          kubectl rollout status deployment/external-secrets -n external-secrets --timeout=120s
+
+      - name: 🐙 8. Install ArgoCD via Helm & Apply Root App (App of Apps)
+        run: |
+          echo "🌳 Instalando ArgoCD via Helm Chart..."
+          helm repo add argo https://argoproj.github.io/argo-helm
+          helm repo update
+          helm upgrade --install argocd argo/argo-cd \
+            --namespace argocd \
+            --create-namespace \
+            --wait \
+            --timeout 5m
+
+          echo "⏳ Aguardando argocd-server ficar pronto..."
+          kubectl rollout status deployment/argocd-server -n argocd --timeout=180s
+
+          echo "🔗 Conectando Root Application (Padrão App of Apps) ao ArgoCD..."
+          kubectl apply -f k8s/argocd/root-app.yaml
+          kubectl get applications -n argocd || true
+
+      - name: 🔄 9. Wait for ExternalSecrets Synchronization in toogle-master
+        run: |
+          echo "⏳ Aguardando sincronização dos 6 segredos do AWS Secrets Manager pelo ESO..."
+          for i in $(seq 1 24); do
+            READY_COUNT=$(kubectl get externalsecrets -n toogle-master --no-headers 2>/dev/null | grep -c "SecretSynced" || true)
+            echo "   -> ExternalSecrets sincronizados: ${READY_COUNT}/6"
+            if [ "${READY_COUNT}" -ge 6 ]; then
+              echo "✅ Todos os 6 segredos foram sincronizados no namespace toogle-master!"
+              break
+            fi
+            sleep 5
+          done
+          kubectl get externalsecrets -n toogle-master
+          kubectl get secrets -n toogle-master
+
+      - name: 🐘 10. Execute & Verify RDS Database Seed Job
+        if: ${{ inputs.run_db_seed != false }}
+        run: |
+          echo "🐘 Executando Job de Seed SQL nos 3 bancos PostgreSQL (auth_db, flag_db, targeting_db)..."
+          kubectl delete job db-init-seed-job -n toogle-master --ignore-not-found
+          kubectl apply -f k8s/overlays/prod/db-init-job.yaml
+          kubectl wait --for=condition=complete job/db-init-seed-job -n toogle-master --timeout=180s
+          kubectl logs job/db-init-seed-job -n toogle-master
+
+      - name: 📊 11. Verify Rollout & Publish Summary
+        if: always()
+        run: |
+          echo "⏳ Verificando status dos Deployments em toogle-master..."
+          for svc in auth-service flag-service targeting-service evaluation-service analytics-service otel-collector self-healing-webhook; do
+            kubectl rollout status "deployment/${svc}" -n toogle-master --timeout=120s || true
+          done
+
+          ALB_HOSTNAME=$(kubectl get svc ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "Provisionando...")
+          ARGOCD_APPS=$(kubectl get applications -n argocd --no-headers 2>/dev/null | wc -l || echo "0")
+
+          {
+            echo "## 🚀 Bootstrap EKS GitOps Concluído (Kustomize + App of Apps)"
+            echo ""
+            echo "| Componente | Status / Endpoint |"
+            echo "| :--- | :--- |"
+            echo "| **Cluster EKS** | \`${EKS_CLUSTER_NAME}\` (\`${AWS_REGION}\`) |"
+            echo "| **Acesso Local IAM** | \`${LOCAL_ADMIN_ARN}\` (\`AmazonEKSClusterAdminPolicy\`) |"
+            echo "| **Kustomize Overlay** | \`k8s/overlays/prod\` |"
+            echo "| **ArgoCD Root App** | \`tooglemaster-root\` (${ARGOCD_APPS} Applications ativas) |"
+            echo "| **ALB Ingress URL** | \`http://${ALB_HOSTNAME}\` |"
+            echo ""
+            echo "### 📦 Pods em \`toogle-master\`"
+            echo "\`\`\`text"
+            kubectl get pods -n toogle-master -o wide 2>/dev/null || true
+            echo "\`\`\`"
+            echo ""
+            echo "### 🐙 ArgoCD Applications"
+            echo "\`\`\`text"
+            kubectl get applications -n argocd 2>/dev/null || true
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"
