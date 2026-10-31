@@ -56,9 +56,9 @@ data:
           job: true
 
       otlphttp/newrelic:
-        endpoint: "${env:NEW_RELIC_OTLP_ENDPOINT}"
+        endpoint: "${env:NEW_RELIC_OTLP_ENDPOINT:-https://otlp.nr-data.net}"
         headers:
-          api-key: "${env:NEW_RELIC_LICENSE_KEY}"
+          api-key: "${env:NEW_RELIC_LICENSE_KEY:-placeholder_nr_key}"
 
       debug:
         verbosity: basic

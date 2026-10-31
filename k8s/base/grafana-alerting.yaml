@@ -24,7 +24,7 @@ data:
             type: pagerduty
             disableResolveMessage: false
             settings:
-              integrationKey: ${PAGERDUTY_INTEGRATION_KEY}
+              integrationKey: ${PAGERDUTY_INTEGRATION_KEY:-00000000000000000000000000000000}
               severity: critical
               class: HighErrorRate5xx
               component: ToggleMaster-Microservices
@@ -33,7 +33,7 @@ data:
             type: discord
             disableResolveMessage: false
             settings:
-              url: ${DISCORD_WEBHOOK_URL}
+              url: ${DISCORD_WEBHOOK_URL:-http://self-healing-webhook.toogle-master.svc.cluster.local:8090/webhook/self-heal}
               use_discord_username: true
 
     policies:
