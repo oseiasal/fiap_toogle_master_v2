@@ -114,7 +114,7 @@ data:
           },
           "targets": [
             {
-              "expr": "sum(rate(http_requests_total[1m])) by (service)",
+              "expr": "sum(rate(http_server_requests_total[1m])) by (service)",
               "legendFormat": "{{service}}",
               "refId": "A"
             }
@@ -150,7 +150,7 @@ data:
           },
           "targets": [
             {
-              "expr": "(sum(rate(http_requests_total{status=~\"5..\"}[1m])) by (service) / clamp_min(sum(rate(http_requests_total[1m])) by (service), 0.0001)) * 100",
+              "expr": "((sum by (service) (rate(http_server_requests_total{status=~\"5..\"}[1m])) or (0 * sum by (service) (rate(http_server_requests_total[1m])))) / clamp_min(sum by (service) (rate(http_server_requests_total[1m])), 0.0001)) * 100",
               "legendFormat": "{{service}} (5xx %)",
               "refId": "A"
             }
@@ -163,7 +163,7 @@ data:
           "fieldConfig": {
             "defaults": {
               "color": { "mode": "palette-classic" },
-              "unit": "s"
+              "unit": "ms"
             },
             "overrides": []
           },
@@ -175,12 +175,12 @@ data:
           },
           "targets": [
             {
-              "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le, service))",
-              "legendFormat": "{{service}} (P95)",
+              "expr": "sum by (service) (rate(http_server_duration_milliseconds_sum[1m])) / clamp_min(sum by (service) (rate(http_server_requests_total[1m])), 0.0001)",
+              "legendFormat": "{{service}} (Latência Média ms)",
               "refId": "A"
             }
           ],
-          "title": "Latência HTTP P95 (Segundos) por Microsserviço",
+          "title": "Latência HTTP (ms) por Microsserviço",
           "type": "timeseries"
         },
         {
@@ -207,12 +207,8 @@ data:
           },
           "targets": [
             {
-              "expr": "{namespace=\"toogle-master\"} |= \"\"",
+              "expr": "{namespace=\"toogle-master\", app=~\"auth-service|flag-service|targeting-service|evaluation-service|analytics-service|self-healing-webhook\"}",
               "refId": "A"
-            },
-            {
-              "expr": "{service_name=~\".+\"} |= \"\"",
-              "refId": "B"
             }
           ],
           "title": "Logs Centralizados em Tempo Real (Loki — Microsserviços & Self-Healing)",
