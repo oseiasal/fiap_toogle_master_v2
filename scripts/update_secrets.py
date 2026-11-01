@@ -204,6 +204,23 @@ def main():
             else:
                 print(f"   [FALHA] Falha ao criar/atualizar: {secret_id}")
 
+    # 5. Sincronizar automaticamente o observability-secret no EKS e reiniciar pods de observabilidade (Zero-Touch kubectl)
+    print("\n[5/5] Sincronizando segredos no Kubernetes (EKS) automaticamente...")
+    obs_sec = secrets_to_update[f"{PREFIX}/observability"]
+    k8s_create = run_cmd([
+        "kubectl", "create", "secret", "generic", "observability-secret",
+        "-n", "toogle-master",
+        f"--from-literal=NEW_RELIC_LICENSE_KEY={obs_sec['NEW_RELIC_LICENSE_KEY']}",
+        f"--from-literal=NEW_RELIC_OTLP_ENDPOINT={obs_sec['NEW_RELIC_OTLP_ENDPOINT']}",
+        f"--from-literal=PAGERDUTY_INTEGRATION_KEY={obs_sec['PAGERDUTY_INTEGRATION_KEY']}",
+        f"--from-literal=DISCORD_WEBHOOK_URL={obs_sec['DISCORD_WEBHOOK_URL']}",
+        "--dry-run=client", "-o", "yaml"
+    ])
+    if k8s_create:
+        subprocess.run(["kubectl", "apply", "-f", "-"], input=k8s_create, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        run_cmd(["kubectl", "rollout", "restart", "deployment/otel-collector", "deployment/grafana", "deployment/self-healing-webhook", "-n", "toogle-master"])
+        print("   [OK] Segredo sincronizado no EKS e pods de observabilidade atualizados automaticamente!")
+
     print("\n" + "=" * 60)
     print(" TODOS OS SEGREDOS FORAM ATUALIZADOS COM SUCESSO!")
     print("=" * 60)
