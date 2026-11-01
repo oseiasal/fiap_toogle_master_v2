@@ -191,7 +191,18 @@ def main():
         if res:
             print(f"   [OK] Atualizado com sucesso: {secret_id}")
         else:
-            print(f"   [FALHA] Falha ao atualizar: {secret_id}")
+            print(f"   [INFO] Segredo {secret_id} ainda nao existia na AWS. Criando automaticamente...")
+            create_res = run_cmd([
+                "aws", "secretsmanager", "create-secret",
+                "--name", secret_id,
+                "--description", f"ToogleMaster {ENV} secret for {secret_id}",
+                "--secret-string", secret_json_str,
+                "--region", REGION
+            ])
+            if create_res:
+                print(f"   [OK] Criado e populado com sucesso: {secret_id}")
+            else:
+                print(f"   [FALHA] Falha ao criar/atualizar: {secret_id}")
 
     print("\n" + "=" * 60)
     print(" TODOS OS SEGREDOS FORAM ATUALIZADOS COM SUCESSO!")
